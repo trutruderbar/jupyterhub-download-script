@@ -38,6 +38,11 @@ set -euo pipefail
 : "${COREDNS_TAR:=}"                  # 可選：例如 ./coredns_v1.10.1.tar（含 registry.k8s.io/coredns/coredns:v1.10.1）
 : "${COREDNS_IMAGE:=registry.k8s.io/coredns/coredns:v1.10.1}"
 
+# --- 新增：讓 adminuser 的單人伺服器可直接對外（免 Hub 登入） ---
+: "${EXPOSE_ADMINUSER_NODEPORT:=true}"   # true=建立 NodePort 服務
+: "${ADMINUSER_TARGET_PORT:=8000}"       # Notebook 內 FastAPI 監聽埠
+: "${ADMINUSER_NODEPORT:=32081}"         # 對外固定 NodePort (30000-32767)
+
 ###### ========= 常數與工具 =========
 HELM_TARBALL_VERSION="v3.15.3"
 K8S_CHANNEL="1.30/stable"
@@ -76,8 +81,8 @@ start(){ [[ -f "$PID" ]] && kill "$(cat "$PID")" 2>/dev/null || true; rm -f "$PI
   nohup "$M" kubectl -n "$NS" port-forward svc/proxy-public --address "$BIND_ADDR" "$LOCAL_PORT:80" >"$LOG" 2>&1 & echo $! > "$PID"
   echo "port-forward started (pid $(cat $PID)). Open http://$BIND_ADDR:$LOCAL_PORT"; }
 stop(){ [[ -f "$PID" ]] && kill "$(cat "$PID")" 2>/dev/null || true; rm -f "$PID"; echo "port-forward stopped."; }
-status(){ if [[ -f "$PID" ]] && ps -p "$(cat "$PID")" >/dev/null 2>&1; then
-  echo "running (pid $(cat $PID)) → http://$BIND_ADDR:$LOCAL_PORT"
+status(){ if ss -ltn | grep -q ":${LOCAL_PORT} " ; then
+  echo "running → http://$BIND_ADDR:$LOCAL_PORT"
 else echo "not running"; exit 1; fi; }
 case "${1:-status}" in start) start;; stop) stop;; status) status;; *) echo "Usage: jhub-portforward {start|stop|status}"; exit 2;; esac
 EOS
@@ -134,7 +139,7 @@ ensure_apiserver_ready(){
 images_import(){
   if [[ -f "${CALICO_BUNDLE}" ]]; then log "[images] 匯入 Calico bundle：${CALICO_BUNDLE}"; "$MICROK8S" images import "${CALICO_BUNDLE}"; else warn "[images] 找不到 ${CALICO_BUNDLE}，Calico 可能線上拉取"; fi
   if [[ -f "${NOTEBOOK_TAR}" ]]; then log "[images] 匯入 Notebook 映像：${NOTEBOOK_TAR}"; "$MICROK8S" images import "${NOTEBOOK_TAR}"; else warn "[images] 找不到 ${NOTEBOOK_TAR}（不影響 Hub 部署，可之後再匯入）"; fi
-  if [[ -n "${COREDNS_TAR}" && -f "${COREDNS_TAR}" ]]; then log "[images] 匯入 CoreDNS 映像：${COREDNS_TAR}"; "$MICROK8S" images import "${COREDNS_TAR}" || warn "[images] CoreDNS tar 匯入失敗（略過）"; fi
+  if [[ -n "${COREDNS_TAR}" && -f "${COREDNS_TAR}" ]]; then log "[images] 匯入 CoreDNS 映像：${COREDNS_TAR}" || true; "$MICROK8S" images import "${COREDNS_TAR}" || warn "[images] CoreDNS tar 匯入失敗（略過）"; fi
 }
 
 # ---------- Calico 換 quay.io ----------
@@ -256,7 +261,7 @@ _write_values_yaml(){
     profileList: $profiles
   },
   hub: {
-    db: { type: "sqlite-memory" },   # 先確保能起；要持久化之後再改 PVC
+    db: { type: "sqlite-memory" },
     config: {
       JupyterHub: { admin_access: true },
       Authenticator: { admin_users: [ $admin ] },
@@ -376,6 +381,42 @@ YAML
   KCTL delete pod cuda-test --ignore-not-found
 }
 
+# ---------- 對外 NodePort（adminuser 專用）與防火牆 ----------
+open_fw_port(){
+  local p="$1"
+  if is_rhel && is_cmd firewall-cmd; then
+    firewall-cmd --add-port="${p}"/tcp --permanent || true
+    firewall-cmd --reload || true
+  elif is_cmd ufw; then
+    ufw allow "${p}"/tcp || true
+  fi
+}
+ensure_adminuser_nodeport(){
+  [[ "${EXPOSE_ADMINUSER_NODEPORT}" != "true" ]] && return 0
+  log "[api] 建立 adminuser 的 NodePort 對外服務（免登入） → ${ADMINUSER_NODEPORT}"
+  cat <<YAML | KCTL apply -f -
+apiVersion: v1
+kind: Service
+metadata:
+  name: adminuser-fastapi-np
+  namespace: ${JHUB_NS}
+  labels: { app: adminuser-fastapi-np }
+spec:
+  type: NodePort
+  selector:
+    hub.jupyter.org/username: ${ADMIN_USER}
+    component: singleuser-server
+  ports:
+    - name: http
+      port: ${ADMINUSER_TARGET_PORT}
+      targetPort: ${ADMINUSER_TARGET_PORT}
+      nodePort: ${ADMINUSER_NODEPORT}
+YAML
+  open_fw_port "${ADMINUSER_NODEPORT}"
+  ok "[api] 外部可用： http://$(hostname -I | awk '{print $1}'):${ADMINUSER_NODEPORT}/ping"
+  ok "     （Notebook 內程式需監聽 0.0.0.0:${ADMINUSER_TARGET_PORT}；Pod 重建時 Service 會自動跟上）"
+}
+
 # ---------- 診斷小工具 ----------
 install_diag_tool(){
   cat >/usr/local/bin/jhub-diag <<'EOS'
@@ -431,7 +472,10 @@ main(){
   wait_rollout "${JHUB_NS}" deploy proxy 600s
   KCTL -n "${JHUB_NS}" get pods,svc
 
-  # port-forward 小工具
+  # 建立 adminuser 專用 NodePort（免 Hub 登入）
+  ensure_adminuser_nodeport
+
+  # port-forward 小工具 & 診斷
   install_portforward_tool
   install_diag_tool
 
@@ -454,20 +498,24 @@ main(){
 ▶ 背景 pf 工具：sudo jhub-portforward {start|stop|status}
 ▶ 診斷工具：sudo jhub-diag ${JHUB_NS}
 ▶ Service：NodePort:${NODEPORT_FALLBACK_PORT}
-▶ Spawner 逾時：http_timeout=${SPAWNER_HTTP_TIMEOUT}s, start_timeout=${KUBESPAWNER_START_TIMEOUT}s
-▶ Hub DB：sqlite-memory（先確保能起，需持久化再改）
+
+▶ Adminuser API（免登入直連）：
+    http://<node_ip>:${ADMINUSER_NODEPORT}/…   （Notebook 內請監聽 0.0.0.0:${ADMINUSER_TARGET_PORT}）
 ============================================================
 
-【對外 API】
-  你的 Notebook 內監聽的服務（例如 8888）可從外部以：
-    http://<node_ip>:${NODEPORT_FALLBACK_PORT}/user/<username>/proxy/8888/...
-  這是 JupyterHub 的標準代理路徑規則（base_url 下掛 /proxy/<port>）。:contentReference[oaicite:3]{index=3}
+【對外 API 提示】
+  - 你在 Notebook 內監聽的服務（例如 8000）可由外部直接打：
+      http://<node_ip>:${ADMINUSER_NODEPORT}/ping
+  - 若改用 Hub 代理（需要登入 Cookie）：
+      http://<node_ip>:${NODEPORT_FALLBACK_PORT}/user/<username>/proxy/${ADMINUSER_TARGET_PORT}/…
 
 【常見故障快速檢查】
-  1) DNS：若 coredns Pod 是 ImagePullBackOff，請確認已套用 ${COREDNS_IMAGE}（本腳本已強制）。:contentReference[oaicite:4]{index=4}
-     - 看看：microk8s kubectl -n kube-system get deploy coredns -o yaml | grep image:
+  1) DNS：若 coredns Pod 是 ImagePullBackOff，請確認已套用 ${COREDNS_IMAGE}
+     - 查看：microk8s kubectl -n kube-system get deploy coredns -o yaml | grep image:
   2) Hub 狀態：sudo jhub-diag ${JHUB_NS}
-  3) 仍有問題？先重跑：microk8s kubectl -n kube-system rollout restart deploy/coredns
+  3) 18080/30080/32081 對外不通？檢查防火牆或自行開放：
+     - firewalld：firewall-cmd --add-port=18080/tcp --permanent && firewall-cmd --add-port=${NODEPORT_FALLBACK_PORT}/tcp --permanent && firewall-cmd --add-port=${ADMINUSER_NODEPORT}/tcp --permanent && firewall-cmd --reload
+     - ufw：ufw allow 18080/tcp && ufw allow ${NODEPORT_FALLBACK_PORT}/tcp && ufw allow ${ADMINUSER_NODEPORT}/tcp
 EOF
 }
 
