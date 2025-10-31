@@ -2,6 +2,9 @@
 # JupyterHub one-shot installer v4.6 (modular + offline side-load + coredns fix + logs + API proxy hints)
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
+: "${OFFLINE_IMAGE_DIR:=${SCRIPT_DIR}/offline-images}"
+
 DEFAULT_HOST_IP="$(hostname -I 2>/dev/null | awk '{for(i=1;i<=NF;i++) if ($i !~ /^127\./) {print $i; exit}}')"
 if [[ -z "${DEFAULT_HOST_IP}" ]] && command -v ip >/dev/null 2>&1; then
   DEFAULT_HOST_IP="$(ip route get 1.1.1.1 2>/dev/null | awk 'NR==1 {for(i=1;i<=NF;i++) if ($i=="src") {print $(i+1); exit}}')"
@@ -22,6 +25,15 @@ fi
 : "${PF_LOCAL_PORT:=18080}"
 : "${PF_AUTOSTART:=true}"
 
+# Hub / Proxy 映像（離線可放置 tar 檔供匯入）
+: "${HUB_IMAGE:=quay.io/jupyterhub/k8s-hub:${JHUB_CHART_VERSION}}"
+: "${HUB_IMAGE_PULL_POLICY:=IfNotPresent}"
+: "${HUB_IMAGE_TAR:=${OFFLINE_IMAGE_DIR}/k8s-hub-${JHUB_CHART_VERSION}.tar}"
+: "${PROXY_IMAGE:=quay.io/jupyterhub/configurable-http-proxy:4.6.3}"
+: "${PROXY_IMAGE_PULL_POLICY:=IfNotPresent}"
+: "${PROXY_IMAGE_TAR:=${OFFLINE_IMAGE_DIR}/configurable-http-proxy-4.6.3.tar}"
+: "${AUTO_PULL_CORE_IMAGES:=false}"
+
 # Singleuser Notebook 映像（建議先用你已擴充的離線鏡像）
 : "${SINGLEUSER_IMAGE:=myorg3/pytorch-jhub:24.10}"
 : "${SINGLEUSER_IMAGE_PULL_POLICY:=IfNotPresent}"
@@ -30,8 +42,8 @@ fi
 : "${SHARED_STORAGE_ENABLED:=true}"
 : "${SHARED_STORAGE_SIZE:=1Ti}"
 : "${SHARED_STORAGE_PATH:=./Storage}"
-: "${HOSTPATH_PROVISIONER_IMAGE:=}"
-: "${HOSTPATH_PROVISIONER_TAR:=}"
+: "${HOSTPATH_PROVISIONER_IMAGE:=docker.io/cdkbot/hostpath-provisioner:1.5.0}"
+: "${HOSTPATH_PROVISIONER_TAR:=${OFFLINE_IMAGE_DIR}/hostpath-provisioner-1.5.0.tar}"
 
 # Spawn/連線逾時，避免大鏡像超時
 : "${SPAWNER_HTTP_TIMEOUT:=180}"
@@ -45,6 +57,12 @@ fi
 : "${GPU_OPERATOR_DISABLE_TOOLKIT:=false}"
 : "${GPU_OPERATOR_DRIVER_RUNFILE_URL:=}"
 : "${GPU_OPERATOR_DRIVER_PKG_MANAGER:=}" # 例如 deb 或 rpm；留空則由 Operator 自判
+
+# === 統一驅動模式（新的高層開關，舊參數仍可覆蓋） ===
+# auto：預設。主機已有驅動→host；否則→dkms（更通用）。必要時你也可手動指定 host/dkms/precompiled。
+: "${GPU_DRIVER_MODE:=auto}"          # auto | host | dkms | precompiled
+# dkms 模式若是 Debian/Ubuntu，會自動裝當前 kernel headers（可關閉）
+: "${GPU_DKMS_INSTALL_HEADERS:=true}"
 
 : "${ENABLE_IB:=false}"               # true 則安裝 NVIDIA Network Operator（不額外套 CR）
 : "${NETWORK_OPERATOR_VERSION:=}"     # 例如 24.7.0（留空用最新 chart）
@@ -112,9 +130,19 @@ fi
 : "${NAMED_SERVER_LIMIT:=5}"
 # 離線側載檔名（存在才會載入）
 : "${CALICO_VERSION:=v3.25.1}"
-: "${CALICO_BUNDLE:=./calico-v3.25.1-bundle.tar}"
-: "${NOTEBOOK_TAR:=./jhub_24.10_3.tar}"
-: "${COREDNS_TAR:=}"                  # 可選：例如 ./coredns_v1.10.1.tar（含 registry.k8s.io/coredns/coredns:v1.10.1）
+: "${CALICO_BUNDLE:=${OFFLINE_IMAGE_DIR}/calico-v3.25.1-bundle.tar}"
+: "${NOTEBOOK_TAR:=${OFFLINE_IMAGE_DIR}/jhub_24.10_3.tar}"
+: "${COREDNS_TAR:=${OFFLINE_IMAGE_DIR}/coredns_v1.10.1.tar}"                  # 可選：例如 ./coredns_v1.10.1.tar（含 registry.k8s.io/coredns/coredns:v1.10.1）
+
+: "${GPU_OPERATOR_BUNDLE_TAR:=${OFFLINE_IMAGE_DIR}/gpu-operator-bundle-v25.10.0.tar}"
+: "${GPU_OPERATOR_CORE_TAR:=${OFFLINE_IMAGE_DIR}/gpu-operator-v25.10.0.tar}"
+: "${KUBE_SCHEDULER_TAR:=${OFFLINE_IMAGE_DIR}/kube-scheduler-v1.30.11.tar}"
+: "${NFD_TAR:=${OFFLINE_IMAGE_DIR}/nfd-v0.18.2.tar}"
+: "${NVIDIA_K8S_DEVICE_PLUGIN_TAR:=${OFFLINE_IMAGE_DIR}/nvidia-k8s-device-plugin-v0.18.0.tar}"
+: "${NVIDIA_CONTAINER_TOOLKIT_TAR:=${OFFLINE_IMAGE_DIR}/nvidia-container-toolkit-v1.18.0.tar}"
+: "${NVIDIA_DCGM_EXPORTER_TAR:=${OFFLINE_IMAGE_DIR}/nvidia-dcgm-exporter-4.4.1-4.6.0-distroless.tar}"
+: "${PAUSE_IMAGE_TAR:=${OFFLINE_IMAGE_DIR}/pause-3.7.tar}"
+: "${BUSYBOX_IMAGE_TAR:=${OFFLINE_IMAGE_DIR}/busybox-1.28.4.tar}"
 : "${COREDNS_IMAGE:=registry.k8s.io/coredns/coredns:v1.10.1}"
 
 # --- 新增：讓 adminuser 的單人伺服器可直接對外（免 Hub 登入） ---
@@ -125,7 +153,15 @@ fi
 : "${ADMINUSER_PF_PORT:=18081}"          # adminuser port-forward 本機埠
 : "${ADMINUSER_PF_BIND_ADDR:=127.0.0.1}" # adminuser port-forward 綁定位址
 
+# 多節點叢集設定（以 SSH 加入 worker 節點）
+: "${CLUSTER_NODE_IPS:=}"                # 空字串=單節點；要啟用叢集再填 IP 清單
+: "${CLUSTER_SSH_USER:=root}"            # SSH 使用者
+: "${CLUSTER_SSH_KEY:=./id_rsa}"     # SSH 私鑰路徑
+: "${CLUSTER_SSH_PORT:=22}"              # SSH 連接埠
+: "${CLUSTER_SSH_OPTS:=}"                # 其他 SSH 參數（例如 -o ProxyJump=...）
 
+: "${PATCH_CALICO:=false}"
+: "${FORCE_RUNC:=false}"
 ###### ========= 常數與工具 =========
 HELM_TARBALL_VERSION="v3.15.3"
 K8S_CHANNEL="1.30/stable"
@@ -204,6 +240,44 @@ _image_exists_locally(){
   local ref="$1"
   CTR images ls --quiet | grep -Fx "${ref}" >/dev/null 2>&1
 }
+_ensure_image_local(){
+  local image="$1" label="${2:-image}" tar_path="${3:-}" imported="false"
+  if _image_exists_locally "${image}"; then
+    ok "[images] ${label} 映像已存在：${image}"
+    return 0
+  fi
+  if [[ -n "${tar_path}" ]]; then
+    if [[ -f "${tar_path}" ]]; then
+      log "[images] 匯入 ${label} 映像（tar）：${tar_path}"
+      if "$MICROK8S" images import "${tar_path}"; then
+        imported="true"
+      else
+        warn "[images] microk8s images import 失敗，嘗試 ctr 匯入 ${tar_path}"
+        if CONTAINERD_NAMESPACE=k8s.io "$MICROK8S" ctr images import "${tar_path}" >/dev/null 2>&1; then
+          imported="true"
+        else
+          warn "[images] 匯入 ${tar_path} 失敗"
+        fi
+      fi
+    else
+      warn "[images] 找不到 ${label} tar：${tar_path}"
+    fi
+  fi
+  if ! _image_exists_locally "${image}" && [[ "${AUTO_PULL_CORE_IMAGES}" == "true" ]]; then
+    log "[images] 預先拉取 ${label} 映像：${image}"
+    if CTR images pull "${image}"; then
+      imported="true"
+    else
+      warn "[images] 拉取 ${image} 失敗"
+    fi
+  fi
+  if _image_exists_locally "${image}"; then
+    ok "[images] ${label} 映像已可用：${image}"
+    return 0
+  fi
+  warn "[images] ${label} 映像仍缺少：${image}"
+  return 1
+}
 require_root(){ [[ $EUID -eq 0 ]] || { err "請用 sudo 執行：sudo $0"; exit 1; }; }
 is_cmd(){ command -v "$1" >/dev/null 2>&1; }
 is_rhel(){ [[ -f /etc/redhat-release || -f /etc/os-release && "$(grep -E '^ID=' /etc/os-release | cut -d= -f2 | tr -d '\"')" == "rhel" ]]; }
@@ -211,12 +285,634 @@ is_deb(){ [ -f /etc/debian_version ]; }
 KCTL(){ "$MICROK8S" kubectl "$@"; }
 CTR(){ CONTAINERD_NAMESPACE=k8s.io "$MICROK8S" ctr "$@"; }
 wait_rollout(){ KCTL -n "$1" rollout status "$2/$3" --timeout="${4:-600s}" || true; }
+ensure_lowercase_hostname(){
+  local host
+  host="$(hostname)"
+  if [[ "${host}" =~ [A-Z_] ]]; then
+    err "[host] 節點名稱 ${host} 含大寫或底線，Kubernetes 會拒絕註冊。請先執行：sudo hostnamectl set-hostname ${host,,}"
+    exit 1
+  fi
+}
+_force_containerd_runtime_runc(){
+  local -a bases=()
+  local updated_env="false" updated_tpl="false" updated_conf="false"
+  shopt -s nullglob
+  bases=(/var/snap/microk8s/current/args /var/snap/microk8s/[0-9]*/args)
+  shopt -u nullglob
+  local base
+  for base in "${bases[@]}"; do
+    [[ -d "${base}" ]] || continue
+    local env_file="${base}/containerd-env"
+    if [[ -f "${env_file}" ]]; then
+      if grep -q '^RUNTIME=' "${env_file}"; then
+        if ! grep -q '^RUNTIME=runc$' "${env_file}"; then
+          sed -i 's/^RUNTIME=.*/RUNTIME=runc/' "${env_file}" 2>/dev/null || true
+          updated_env="true"
+        fi
+      else
+        printf '\nRUNTIME=runc\n' >> "${env_file}" 2>/dev/null || true
+        updated_env="true"
+      fi
+      if grep -q '^SNAPSHOTTER=' "${env_file}"; then
+        if ! grep -q '^SNAPSHOTTER=overlayfs$' "${env_file}"; then
+          sed -i 's/^SNAPSHOTTER=.*/SNAPSHOTTER=overlayfs/' "${env_file}" 2>/dev/null || true
+          updated_env="true"
+        fi
+      else
+        printf 'SNAPSHOTTER=overlayfs\n' >> "${env_file}" 2>/dev/null || true
+        updated_env="true"
+      fi
+    fi
+    local f
+    for f in "${base}/containerd-template.toml" "${base}/containerd.toml"; do
+      [[ -f "${f}" ]] || continue
+      if grep -q '\${RUNTIME}' "${f}"; then
+        sed -i 's/\${RUNTIME}/runc/g' "${f}" 2>/dev/null || true
+        updated_tpl="true"
+      fi
+      if grep -q '\${SNAPSHOTTER}' "${f}"; then
+        sed -i 's/\${SNAPSHOTTER}/overlayfs/g' "${f}" 2>/dev/null || true
+        updated_tpl="true"
+      fi
+      if grep -q '\${RUNTIME_TYPE}' "${f}"; then
+        sed -i 's/\${RUNTIME_TYPE}/io.containerd.runc.v2/g' "${f}" 2>/dev/null || true
+        updated_tpl="true"
+      fi
+    done
+  done
+
+  shopt -s nullglob
+  local conf
+  for conf in /etc/containerd/conf.d/*.toml; do
+    [[ -f "${conf}" ]] || continue
+    if grep -q '\${SNAPSHOTTER}' "${conf}"; then
+      sed -i 's/\${SNAPSHOTTER}/overlayfs/g' "${conf}" 2>/dev/null || true
+      updated_conf="true"
+    fi
+    if grep -q '\${RUNTIME_TYPE}' "${conf}"; then
+      sed -i 's/\${RUNTIME_TYPE}/io.containerd.runc.v2/g' "${conf}" 2>/dev/null || true
+      updated_conf="true"
+    fi
+  done
+  shopt -u nullglob
+
+  if [[ "${updated_env}" == "true" || "${updated_tpl}" == "true" || "${updated_conf}" == "true" ]]; then
+    log "[containerd] 調整 runtime=snapshots (runc/overlayfs)，重新載入 microk8s containerd"
+    if command -v snapctl >/dev/null 2>&1; then
+      snapctl restart microk8s.daemon-containerd >/dev/null 2>&1 || true
+    elif command -v systemctl >/dev/null 2>&1; then
+      systemctl restart snap.microk8s.daemon-containerd.service >/dev/null 2>&1 || true
+    fi
+  fi
+}
+
+wait_all_nodes_ready(){
+  log "[wait] 等待所有節點 Ready（最多 15 分鐘）"
+  for i in {1..90}; do
+    not_ready=$(KCTL get nodes -o json 2>/dev/null | jq -r '
+      [.items[] | any(.status.conditions[]; .type=="Ready" and .status!="True")] | any' 2>/dev/null)
+    [[ "$not_ready" == "false" ]] && { ok "[ok] 所有節點均為 Ready"; return 0; }
+    sleep 10
+  done
+  warn "[wait] 節點仍未全部 Ready，後續安裝可能失敗（請先修 CNI/Calico 再重跑）"
+}
+# ---------- Cluster Helpers ----------
+CLUSTER_ADD_NODE_SUPPORTS_WORKER=""
+_cluster_add_node_supports_worker(){
+  if [[ "${CLUSTER_ADD_NODE_SUPPORTS_WORKER}" == "true" ]]; then
+    return 0
+  elif [[ "${CLUSTER_ADD_NODE_SUPPORTS_WORKER}" == "false" ]]; then
+    return 1
+  fi
+  if "$MICROK8S" add-node --help 2>&1 | grep -q -- '--worker'; then
+    CLUSTER_ADD_NODE_SUPPORTS_WORKER="true"
+    return 0
+  else
+    CLUSTER_ADD_NODE_SUPPORTS_WORKER="false"
+    return 1
+  fi
+}
+_ha_cluster_enabled(){
+  "$MICROK8S" status 2>/dev/null | grep -q 'ha-cluster\s\+.*enabled'
+}
+_cluster_ensure_ha(){
+  _cluster_enabled || return 0
+  _ha_cluster_enabled && return 0
+  log "[cluster] 啟用 microk8s ha-cluster（加入 worker 節點必要條件）"
+  if ! "$MICROK8S" enable ha-cluster >/tmp/microk8s-ha.log 2>&1; then
+    err "[cluster] 啟用 ha-cluster 失敗，log："
+    sed -n '1,120p' /tmp/microk8s-ha.log || true
+    exit 1
+  fi
+  ok "[cluster] ha-cluster 已啟用"
+}
+_cluster_enabled(){
+  local trimmed="${CLUSTER_NODE_IPS//[[:space:],]/}"
+  [[ -n "${trimmed}" ]]
+}
+_k8s_node_count(){
+  local count
+  count=$("$MICROK8S" kubectl get nodes --no-headers 2>/dev/null | awk 'NF {c++} END {print c+0}')
+  [[ -n "${count}" ]] || count=0
+  printf '%s' "${count}"
+}
+_cluster_ip_list(){
+  local raw="${CLUSTER_NODE_IPS//,/ }" token
+  for token in ${raw}; do
+    token="${token//[[:space:]]/}"
+    [[ -z "${token}" ]] && continue
+    printf '%s\n' "${token}"
+  done
+}
+_cluster_ssh(){
+  local ip="$1"; shift
+  local -a cmd=(ssh -p "${CLUSTER_SSH_PORT}" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null)
+  [[ -n "${CLUSTER_SSH_KEY}" ]] && cmd+=(-i "${CLUSTER_SSH_KEY}")
+  if [[ -n "${CLUSTER_SSH_OPTS}" ]]; then
+    local -a extra=()
+    IFS=' ' read -r -a extra <<< "${CLUSTER_SSH_OPTS}"
+    cmd+=("${extra[@]}")
+  fi
+  cmd+=("${CLUSTER_SSH_USER}@${ip}")
+  cmd+=("$@")
+  "${cmd[@]}"
+}
+_cluster_scp(){
+  local ip="$1" src="$2" dest="$3"
+  local -a cmd=(scp -P "${CLUSTER_SSH_PORT}" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null)
+  [[ -n "${CLUSTER_SSH_KEY}" ]] && cmd+=(-i "${CLUSTER_SSH_KEY}")
+  if [[ -n "${CLUSTER_SSH_OPTS}" ]]; then
+    local -a extra=()
+    IFS=' ' read -r -a extra <<< "${CLUSTER_SSH_OPTS}"
+    cmd+=("${extra[@]}")
+  fi
+  cmd+=("${src}" "${CLUSTER_SSH_USER}@${ip}:${dest}")
+  "${cmd[@]}"
+}
+_cluster_requirements(){
+  _cluster_enabled || return 0
+  if [[ -z "${CLUSTER_SSH_KEY}" ]]; then
+    err "[cluster] 未設定 CLUSTER_SSH_KEY"; exit 1
+  fi
+  if [[ ! -f "${CLUSTER_SSH_KEY}" ]]; then
+    err "[cluster] 找不到 SSH 私鑰：${CLUSTER_SSH_KEY}"
+    exit 1
+  fi
+  if [[ ! -r "${CLUSTER_SSH_KEY}" ]]; then
+    err "[cluster] SSH 私鑰不可讀：${CLUSTER_SSH_KEY}"
+    exit 1
+  fi
+  if ! is_cmd ssh; then
+    log "[cluster] 安裝 openssh client"
+    if is_deb; then need_pkg openssh-client; else need_pkg openssh-clients; fi
+  fi
+  chmod 600 "${CLUSTER_SSH_KEY}" >/dev/null 2>&1 || true
+}
+_cluster_remote_prepare(){
+  local ip="$1"
+  log "[cluster] 準備節點 ${ip}（安裝/同步 MicroK8s ${K8S_CHANNEL}）"
+  _cluster_ssh "${ip}" bash -s <<EOF
+set -euo pipefail
+CHANNEL="${K8S_CHANNEL}"
+HOSTNAME="\$(hostname)"
+if echo "\${HOSTNAME}" | grep -q '[A-Z_]'; then
+  echo "[remote][err] 節點 \${HOSTNAME} 含有大寫或底線，請先執行：sudo hostnamectl set-hostname \${HOSTNAME,,}" >&2
+  exit 1
+fi
+if ! command -v snap >/dev/null 2>&1; then
+  if command -v apt-get >/dev/null 2>&1; then
+    apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y snapd
+    systemctl enable --now snapd.socket
+  elif command -v dnf >/dev/null 2>&1; then
+    dnf install -y snapd || yum install -y snapd
+    systemctl enable --now snapd.socket
+    [ -d /snap ] || ln -s /var/lib/snapd/snap /snap
+  elif command -v yum >/dev/null 2>&1; then
+    yum install -y snapd
+    systemctl enable --now snapd.socket
+    [ -d /snap ] || ln -s /var/lib/snapd/snap /snap
+  else
+    echo "[cluster][warn] 無法自動安裝 snapd，請於 ${ip} 手動安裝" >&2
+  fi
+fi
+need_install=false
+if snap list | grep -q '^microk8s\\s'; then
+  current_status="\$(microk8s status 2>&1 || true)"
+  if echo "\${current_status}" | grep -q 'This MicroK8s deployment is acting as a node in a cluster'; then
+    echo "[remote] ${ip} 仍綁在既有叢集，執行 microk8s leave/reset" >&2
+    microk8s leave --force >/dev/null 2>&1 || true
+    microk8s stop >/dev/null 2>&1 || true
+    microk8s reset >/dev/null 2>&1 || true
+    rm -f /var/snap/microk8s/common/cluster-info.yaml 2>/dev/null || true
+    rm -rf /var/snap/microk8s/current/cluster 2>/dev/null || true
+    need_install=true
+  elif ! microk8s status --wait-ready --timeout 300 >/dev/null 2>&1; then
+    echo "[remote] ${ip} 現有 MicroK8s 無法就緒，重新安裝" >&2
+    need_install=true
+  else
+    snap refresh microk8s --channel="\${CHANNEL}" || true
+  fi
+else
+  need_install=true
+fi
+if [ "\${need_install}" = true ]; then
+  snap remove --purge microk8s >/dev/null 2>&1 || true
+  rm -rf /var/snap/microk8s 2>/dev/null || true
+  snap install microk8s --classic --channel="\${CHANNEL}"
+fi
+# 確保 containerd runtime 以 runc 為預設
+shopt -s nullglob
+bases=(/var/snap/microk8s/current/args /var/snap/microk8s/[0-9]*/args)
+shopt -u nullglob
+for base in "\${bases[@]}"; do
+  env_file="\${base}/containerd-env"
+  if [ -f "\${env_file}" ]; then
+    if grep -q '^RUNTIME=' "\${env_file}"; then
+      sed -i 's/^RUNTIME=.*/RUNTIME=runc/' "\${env_file}" || true
+    else
+      printf '\\nRUNTIME=runc\\n' >> "\${env_file}" || true
+    fi
+    if grep -q '^SNAPSHOTTER=' "\${env_file}"; then
+      sed -i 's/^SNAPSHOTTER=.*/SNAPSHOTTER=overlayfs/' "\${env_file}" || true
+    else
+      printf 'SNAPSHOTTER=overlayfs\\n' >> "\${env_file}" || true
+    fi
+  fi
+  [ -d "\${base}" ] || continue
+  for f in "\${base}/containerd-template.toml" "\${base}/containerd.toml"; do
+    [ -f "\$f" ] || continue
+    sed -i 's/\${RUNTIME}/runc/g' "\$f" || true
+    sed -i 's/\${SNAPSHOTTER}/overlayfs/g' "\$f" || true
+    sed -i 's/\${RUNTIME_TYPE}/io.containerd.runc.v2/g' "\$f" || true
+  done
+done
+shopt -s nullglob
+for conf in /etc/containerd/conf.d/*.toml; do
+  [ -f "\${conf}" ] || continue
+  sed -i 's/\${SNAPSHOTTER}/overlayfs/g' "\${conf}" || true
+  sed -i 's/\${RUNTIME_TYPE}/io.containerd.runc.v2/g' "\${conf}" || true
+done
+shopt -u nullglob
+snap_current="/var/snap/microk8s/current"
+args_dir="\${snap_current}/args"
+template="\${args_dir}/containerd-template.toml"
+config="\${args_dir}/containerd.toml"
+dropin="/etc/containerd/conf.d/99-nvidia.toml"
+mkdir -p /etc/containerd/conf.d
+if [ -f "\${template}" ] && ! grep -Fq '/etc/containerd/conf.d/*.toml' "\${template}"; then
+  tmp="\$(mktemp)"
+  printf 'imports = ["/etc/containerd/conf.d/*.toml"]\n' >"\${tmp}"
+  cat "\${template}" >>"\${tmp}"
+  mv "\${tmp}" "\${template}"
+fi
+if [ -f "\${config}" ] && ! grep -Fq '/etc/containerd/conf.d/*.toml' "\${config}"; then
+  tmp="\$(mktemp)"
+  printf 'imports = ["/etc/containerd/conf.d/*.toml"]\n' >"\${tmp}"
+  cat "\${config}" >>"\${tmp}"
+  mv "\${tmp}" "\${config}"
+fi
+cat <<'TOML' >"\${dropin}"
+version = 2
+
+[plugins]
+
+  [plugins."io.containerd.grpc.v1.cri"]
+    enable_cdi = true
+    enable_selinux = false
+    enable_tls_streaming = false
+    max_container_log_line_size = 16384
+    sandbox_image = "registry.k8s.io/pause:3.7"
+    stats_collect_period = 10
+    stream_server_address = "127.0.0.1"
+    stream_server_port = "0"
+
+    [plugins."io.containerd.grpc.v1.cri".cni]
+      bin_dir = "/var/snap/microk8s/current/opt/cni/bin"
+      conf_dir = "/var/snap/microk8s/current/args/cni-network"
+
+    [plugins."io.containerd.grpc.v1.cri".containerd]
+      default_runtime_name = "runc"
+      no_pivot = false
+      snapshotter = "overlayfs"
+
+      [plugins."io.containerd.grpc.v1.cri".containerd.runtimes]
+
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata]
+          runtime_type = "io.containerd.kata.v2"
+
+          [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata.options]
+            BinaryName = "kata-runtime"
+
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.nvidia]
+          runtime_type = "io.containerd.runc.v2"
+
+          [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.nvidia.options]
+            BinaryName = "/usr/local/nvidia/toolkit/nvidia-container-runtime"
+
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.nvidia-cdi]
+          runtime_type = "io.containerd.runc.v2"
+
+          [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.nvidia-cdi.options]
+            BinaryName = "/usr/local/nvidia/toolkit/nvidia-container-runtime.cdi"
+
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.nvidia-container-runtime]
+          runtime_type = "io.containerd.runc.v2"
+
+          [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.nvidia-container-runtime.options]
+            BinaryName = "nvidia-container-runtime"
+
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.nvidia-legacy]
+          runtime_type = "io.containerd.runc.v2"
+
+          [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.nvidia-legacy.options]
+            BinaryName = "/usr/local/nvidia/toolkit/nvidia-container-runtime.legacy"
+
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
+          runtime_type = "io.containerd.runc.v2"
+
+    [plugins."io.containerd.grpc.v1.cri".registry]
+      config_path = "/var/snap/microk8s/current/args/certs.d"
+TOML
+current_status="\$(microk8s status 2>&1 || true)"
+if echo "\${current_status}" | grep -q 'This MicroK8s deployment is acting as a node in a cluster'; then
+  echo "[remote] ${ip} 仍綁在既有叢集，執行 microk8s leave/reset" >&2
+  microk8s leave --force >/dev/null 2>&1 || true
+  microk8s stop >/dev/null 2>&1 || true
+  microk8s reset >/dev/null 2>&1 || true
+  rm -f /var/snap/microk8s/common/cluster-info.yaml 2>/dev/null || true
+  rm -rf /var/snap/microk8s/current/cluster 2>/dev/null || true
+fi
+microk8s stop >/dev/null 2>&1 || true
+microk8s start
+if ! microk8s status --wait-ready --timeout 1200; then
+  echo "[remote] ${ip} microk8s status --wait-ready 逾時，最近日志：" >&2
+  journalctl -u snap.microk8s.daemon-containerd -u snap.microk8s.daemon-kubelite -n 80 >&2 || true
+  exit 1
+fi
+EOF
+}
+
+_cluster_ensure_nvidia_runtime(){
+  local ip="$1"
+  [[ "${USE_GPU_OPERATOR}" == "true" ]] || return 0
+  log "[cluster] 確認節點 ${ip} containerd 已註冊 nvidia runtime"
+  _cluster_ssh "${ip}" bash -s <<'EOF'
+set -euo pipefail
+snap_current="/var/snap/microk8s/current"
+args_dir="${snap_current}/args"
+template="${args_dir}/containerd-template.toml"
+config="${args_dir}/containerd.toml"
+dropin="/etc/containerd/conf.d/99-nvidia.toml"
+mkdir -p /etc/containerd/conf.d
+if [ -f "${template}" ] && ! grep -Fq '/etc/containerd/conf.d/*.toml' "${template}"; then
+  tmp="$(mktemp)"
+  printf 'imports = ["/etc/containerd/conf.d/*.toml"]\n' >"${tmp}"
+  cat "${template}" >>"${tmp}"
+  mv "${tmp}" "${template}"
+fi
+if [ -f "${config}" ] && ! grep -Fq '/etc/containerd/conf.d/*.toml' "${config}"; then
+  tmp="$(mktemp)"
+  printf 'imports = ["/etc/containerd/conf.d/*.toml"]\n' >"${tmp}"
+  cat "${config}" >>"${tmp}"
+  mv "${tmp}" "${config}"
+fi
+cat <<'TOML' >"${dropin}"
+version = 2
+
+[plugins]
+
+  [plugins."io.containerd.grpc.v1.cri"]
+    enable_cdi = true
+    enable_selinux = false
+    enable_tls_streaming = false
+    max_container_log_line_size = 16384
+    sandbox_image = "registry.k8s.io/pause:3.7"
+    stats_collect_period = 10
+    stream_server_address = "127.0.0.1"
+    stream_server_port = "0"
+
+    [plugins."io.containerd.grpc.v1.cri".cni]
+      bin_dir = "/var/snap/microk8s/current/opt/cni/bin"
+      conf_dir = "/var/snap/microk8s/current/args/cni-network"
+
+    [plugins."io.containerd.grpc.v1.cri".containerd]
+      default_runtime_name = "runc"
+      no_pivot = false
+      snapshotter = "overlayfs"
+
+      [plugins."io.containerd.grpc.v1.cri".containerd.runtimes]
+
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata]
+          runtime_type = "io.containerd.kata.v2"
+
+          [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata.options]
+            BinaryName = "kata-runtime"
+
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.nvidia]
+          runtime_type = "io.containerd.runc.v2"
+
+          [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.nvidia.options]
+            BinaryName = "/usr/local/nvidia/toolkit/nvidia-container-runtime"
+
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.nvidia-cdi]
+          runtime_type = "io.containerd.runc.v2"
+
+          [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.nvidia-cdi.options]
+            BinaryName = "/usr/local/nvidia/toolkit/nvidia-container-runtime.cdi"
+
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.nvidia-container-runtime]
+          runtime_type = "io.containerd.runc.v2"
+
+          [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.nvidia-container-runtime.options]
+            BinaryName = "nvidia-container-runtime"
+
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.nvidia-legacy]
+          runtime_type = "io.containerd.runc.v2"
+
+          [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.nvidia-legacy.options]
+            BinaryName = "/usr/local/nvidia/toolkit/nvidia-container-runtime.legacy"
+
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
+          runtime_type = "io.containerd.runc.v2"
+
+    [plugins."io.containerd.grpc.v1.cri".registry]
+      config_path = "/var/snap/microk8s/current/args/certs.d"
+TOML
+systemctl restart snap.microk8s.daemon-containerd
+sleep 3
+EOF
+}
+_cluster_sync_images(){
+  local ip="$1"
+  local -a tars=()
+  [[ -n "${CALICO_BUNDLE}" && -f "${CALICO_BUNDLE}" ]] && tars+=("${CALICO_BUNDLE}")
+  [[ -n "${NOTEBOOK_TAR}" && -f "${NOTEBOOK_TAR}" ]] && tars+=("${NOTEBOOK_TAR}")
+  [[ -n "${HOSTPATH_PROVISIONER_TAR}" && -f "${HOSTPATH_PROVISIONER_TAR}" ]] && tars+=("${HOSTPATH_PROVISIONER_TAR}")
+  [[ -n "${COREDNS_TAR}" && -f "${COREDNS_TAR}" ]] && tars+=("${COREDNS_TAR}")
+  [[ -n "${HUB_IMAGE_TAR}" && -f "${HUB_IMAGE_TAR}" ]] && tars+=("${HUB_IMAGE_TAR}")
+  [[ -n "${PROXY_IMAGE_TAR}" && -f "${PROXY_IMAGE_TAR}" ]] && tars+=("${PROXY_IMAGE_TAR}")
+  (( ${#tars[@]} == 0 )) && return 0
+  log "[cluster] 傳送離線映像到 ${ip}"
+  local tar_path remote_path
+  for tar_path in "${tars[@]}"; do
+    remote_path="/tmp/$(basename "${tar_path}")"
+    if _cluster_scp "${ip}" "${tar_path}" "${remote_path}"; then
+      log "[cluster] 匯入 $(basename "${tar_path}") 至 ${ip}"
+      _cluster_ssh "${ip}" "
+set -euo pipefail
+if microk8s images import '${remote_path}' >/tmp/microk8s-img.log 2>&1; then
+  rm -f '${remote_path}'
+else
+  if microk8s ctr images import '${remote_path}' >/tmp/microk8s-img.log 2>&1; then
+    rm -f '${remote_path}'
+  else
+    cat /tmp/microk8s-img.log >&2 || true
+    exit 1
+  fi
+fi
+" || warn "[cluster] ${ip} 匯入 ${tar_path} 失敗"
+    else
+      warn "[cluster] 無法複製 ${tar_path} 到 ${ip}"
+    fi
+  done
+}
+_cluster_get_join_command(){
+  local output join_line="" 
+  local -a add_args=()
+  if _cluster_add_node_supports_worker; then
+    add_args+=(--worker)
+  fi
+  if join_line=$("$MICROK8S" add-node "${add_args[@]}" --format short 2>/dev/null); then
+    join_line="$(echo "${join_line}" | head -n1 | xargs || true)"
+  else
+    join_line=""
+  fi
+  if [[ -z "${join_line}" ]]; then
+    output=$("$MICROK8S" add-node "${add_args[@]}" 2>&1 || true)
+    join_line=$(printf '%s\n' "${output}" | awk '{$1=$1; if ($1=="microk8s" && $2=="join"){print; exit}}')
+  fi
+  if [[ -z "${join_line}" ]]; then
+    err "[cluster] 無法取得 microk8s join 指令，輸出：${output}"
+    return 1
+  fi
+  if [[ "${join_line}" != *"--worker"* ]]; then
+    join_line="${join_line} --worker"
+  fi
+  printf '%s\n' "${join_line}"
+}
+_cluster_join_node(){
+  local ip="$1" join_cmd join_b64
+  _cluster_ensure_ha
+  join_cmd="$(_cluster_get_join_command)" || return 1
+  join_b64=$(printf '%s' "${join_cmd}" | base64 -w0 2>/dev/null || printf '%s' "${join_cmd}" | base64)
+  log "[cluster] 將節點 ${ip} 加入叢集"
+  _cluster_ssh "${ip}" env JOIN_CMD_B64="${join_b64}" bash -s <<'EOF'
+set -euo pipefail
+if ! command -v base64 >/dev/null 2>&1; then
+  echo "[cluster][err] 缺少 base64 指令，請先安裝 coreutils/base64" >&2
+  exit 1
+fi
+JOIN_CMD="$(printf '%s' "${JOIN_CMD_B64}" | base64 -d)"
+microk8s leave --force >/dev/null 2>&1 || true
+eval "${JOIN_CMD}"
+EOF
+}
+_cluster_wait_ready(){
+  local ip="$1"
+  log "[cluster] 等待節點 ${ip} Ready"
+  for _ in {1..60}; do
+    local nodes_json node_ready node_name
+    nodes_json=$(KCTL get nodes -o json 2>/dev/null || true)
+    if [[ -n "${nodes_json}" ]]; then
+      node_name=$(echo "${nodes_json}" | jq -r --arg ip "${ip}" '
+        .items[] | select(.status.addresses[]?.address==$ip) | .metadata.name' 2>/dev/null | head -n1 || true)
+      if [[ -n "${node_name}" ]]; then
+        node_ready=$(echo "${nodes_json}" | jq -r --arg name "${node_name}" '
+          .items[] | select(.metadata.name==$name) | .status.conditions[] | select(.type=="Ready") | .status' 2>/dev/null | head -n1 || true)
+        if [[ "${node_ready}" == "True" ]]; then
+          ok "[cluster] 節點 ${ip} (${node_name}) 已 Ready"
+          return 0
+        fi
+      fi
+    fi
+    sleep 10
+  done
+  warn "[cluster] 節點 ${ip} 未在預期時間內 Ready，請手動檢查"
+}
+ensure_cluster_nodes(){
+  _cluster_enabled || return 0
+  _cluster_ensure_ha
+  _cluster_requirements
+  local -a existing_ips=()
+  if "$MICROK8S" kubectl get nodes -o wide >/dev/null 2>&1; then
+    mapfile -t existing_ips < <("$MICROK8S" kubectl get nodes -o wide | awk 'NR>1 {print $6}' | sort -u)
+  fi
+  local ip
+  while IFS= read -r ip; do
+    [[ -z "${ip}" ]] && continue
+    if printf '%s\n' "${existing_ips[@]}" | grep -Fx "${ip}" >/dev/null 2>&1; then
+      ok "[cluster] 節點 ${ip} 已在叢集中，略過"
+      _cluster_ensure_nvidia_runtime "${ip}"
+      continue
+    fi
+    _cluster_remote_prepare "${ip}"
+    _cluster_sync_images "${ip}" || true
+    if _cluster_join_node "${ip}"; then
+      _cluster_ensure_nvidia_runtime "${ip}"
+      if ! _cluster_wait_ready "${ip}"; then
+        warn "[cluster] 節點 ${ip} 未 Ready，嘗試 microk8s inspect"
+        _cluster_ssh "${ip}" "microk8s inspect || true"
+      fi
+    else
+      warn "[cluster] 加入節點 ${ip} 失敗，請手動確認"
+    fi
+  done < <(_cluster_ip_list)
+}
 
 # ---------- Port-forward 工具 ----------
 pf_stop(){ [[ -f "${PF_PROXY_PID}" ]] && kill "$(cat "${PF_PROXY_PID}")" 2>/dev/null || true; rm -f "${PF_PROXY_PID}" 2>/dev/null || true; }
 pf_start(){
-  nohup "$MICROK8S" kubectl -n "${JHUB_NS}" port-forward svc/proxy-public --address "${PF_BIND_ADDR}" "${PF_LOCAL_PORT}:80" >"${PF_PROXY_LOG}" 2>&1 & echo $! > "${PF_PROXY_PID}"
-  for _ in {1..30}; do (exec 3<>/dev/tcp/${PF_BIND_ADDR}/${PF_LOCAL_PORT}) >/dev/null 2>&1 && { ok "[pf] ${PF_BIND_ADDR}:${PF_LOCAL_PORT} 已連通（pid $(cat ${PF_PROXY_PID})）"; return 0; }; sleep 1; done
+  mkdir -p "$(dirname "${PF_PROXY_LOG}")"
+  : > "${PF_PROXY_LOG}"
+  local check_host="${PF_BIND_ADDR}"; [[ "${PF_BIND_ADDR}" == "0.0.0.0" ]] && check_host="127.0.0.1"
+  local endpoints_ready=false
+  for _ in {1..60}; do
+    if "$MICROK8S" kubectl -n "${JHUB_NS}" get endpoints proxy-public -o jsonpath='{range .subsets[*].addresses[*]}{.ip}{"\n"}{end}' 2>/dev/null | grep -q '.'; then
+      endpoints_ready=true
+      break
+    fi
+    sleep 2
+  done
+  [[ "${endpoints_ready}" != "true" ]] && warn "[pf] proxy-public 未曝光 endpoints，仍嘗試 port-forward"
+  local max_attempts=5 attempt=1
+  while (( attempt <= max_attempts )); do
+    nohup "$MICROK8S" kubectl -n "${JHUB_NS}" port-forward svc/proxy-public --address "${PF_BIND_ADDR}" "${PF_LOCAL_PORT}:80" >"${PF_PROXY_LOG}" 2>&1 &
+    echo $! > "${PF_PROXY_PID}"
+    local pid
+    pid="$(cat "${PF_PROXY_PID}")"
+    local port_ready=false
+    for _ in {1..30}; do
+      if (exec 3<>/dev/tcp/${check_host}/${PF_LOCAL_PORT}) >/dev/null 2>&1; then
+        ok "[pf] ${check_host}:${PF_LOCAL_PORT} 已連通（pid ${pid}）"
+        return 0
+      fi
+      if ! kill -0 "${pid}" >/dev/null 2>&1; then
+        break
+      fi
+      sleep 1
+    done
+    [[ -f "${PF_PROXY_PID}" ]] && kill "${pid}" >/dev/null 2>&1 || true
+    rm -f "${PF_PROXY_PID}" >/dev/null 2>&1 || true
+    if (( attempt < max_attempts )); then
+      warn "[pf] 第 ${attempt} 次 port-forward 失敗，5 秒後重試..."
+      sleep 5
+      : > "${PF_PROXY_LOG}"
+      ((attempt++))
+      continue
+    fi
+    break
+  done
   warn "[pf] 啟動疑似失敗，最近 log："; tail -n 50 "${PF_PROXY_LOG}" || true; return 1
 }
 adminuser_pf_stop(){ [[ -f "${ADMINUSER_PF_PID}" ]] && kill "$(cat "${ADMINUSER_PF_PID}")" 2>/dev/null || true; rm -f "${ADMINUSER_PF_PID}" 2>/dev/null || true; }
@@ -260,9 +956,58 @@ install_portforward_tool(){
 set -euo pipefail
 NS="__JHUB_NS__"; BIND_ADDR="__PF_BIND_ADDR__"; LOCAL_PORT="__PF_LOCAL_PORT__"
 PID="__PF_PROXY_PID__"; LOG="__PF_PROXY_LOG__"; M="/snap/bin/microk8s"
-start(){ [[ -f "$PID" ]] && kill "$(cat "$PID")" 2>/dev/null || true; rm -f "$PID";
-  nohup "$M" kubectl -n "$NS" port-forward svc/proxy-public --address "$BIND_ADDR" "$LOCAL_PORT:80" >"$LOG" 2>&1 & echo $! > "$PID"
-  echo "port-forward started (pid $(cat $PID)). Open http://$BIND_ADDR:$LOCAL_PORT"; }
+start(){
+  [[ -f "$PID" ]] && kill "$(cat "$PID")" 2>/dev/null || true
+  rm -f "$PID"
+  mkdir -p "$(dirname "$LOG")"
+  : > "$LOG"
+  local view_host="$BIND_ADDR"
+  [[ "$BIND_ADDR" = "0.0.0.0" ]] && view_host="127.0.0.1"
+  local endpoints_ready=false
+  for _ in {1..60}; do
+    if "$M" kubectl -n "$NS" get endpoints proxy-public -o jsonpath='{range .subsets[*].addresses[*]}{.ip}{"\n"}{end}' 2>/dev/null | grep -q '.'; then
+      endpoints_ready=true
+      break
+    fi
+    sleep 2
+  done
+  [[ "$endpoints_ready" != "true" ]] && echo "[pf] proxy-public endpoint 尚未準備好，仍嘗試啟動 port-forward..." >&2
+  local max_attempts=5 attempt=1
+  while (( attempt <= max_attempts )); do
+    nohup "$M" kubectl -n "$NS" port-forward svc/proxy-public --address "$BIND_ADDR" "$LOCAL_PORT:80" >"$LOG" 2>&1 &
+    echo $! > "$PID"
+    local pid
+    pid="$(cat "$PID")"
+    local success=false
+    for _ in {1..30}; do
+      if (exec 3<>/dev/tcp/${view_host}/${LOCAL_PORT}) >/dev/null 2>&1; then
+        success=true
+        break
+      fi
+      if ! kill -0 "$pid" >/dev/null 2>&1; then
+        break
+      fi
+      sleep 1
+    done
+    if [[ "$success" == "true" ]]; then
+      echo "port-forward started (pid $pid). Open http://$view_host:$LOCAL_PORT"
+      return 0
+    fi
+    [[ -f "$PID" ]] && kill "$pid" >/dev/null 2>&1 || true
+    rm -f "$PID"
+    if (( attempt < max_attempts )); then
+      echo "[pf] 第 $attempt 次啟動失敗，5 秒後重試..." >&2
+      sleep 5
+      : > "$LOG"
+      ((attempt++))
+      continue
+    fi
+    break
+  done
+  tail -n 50 "$LOG" >&2 || true
+  echo "port-forward failed" >&2
+  exit 1
+}
 stop(){ [[ -f "$PID" ]] && kill "$(cat "$PID")" 2>/dev/null || true; rm -f "$PID"; echo "port-forward stopped."; }
 status(){ if ss -ltn | grep -q ":${LOCAL_PORT} " ; then
   echo "running → http://$BIND_ADDR:$LOCAL_PORT"
@@ -346,8 +1091,21 @@ ensure_microk8s(){
     else pkg_install snapd snapd-selinux || true; systemctl enable --now snapd.socket; [[ -e /snap ]] || ln -s /var/lib/snapd/snap /snap; fi
     sleep 2
   fi
-  snap list | grep -q '^microk8s\s' || { log "[act] 安裝 MicroK8s (${K8S_CHANNEL})"; snap install microk8s --channel="${K8S_CHANNEL}" --classic; }
-  ok "[ok] MicroK8s 安裝完成"
+  if snap list | grep -q '^microk8s\s'; then
+    if ! "$MICROK8S" status --wait-ready >/dev/null 2>&1; then
+      warn "[microk8s] 現有 MicroK8s 狀態不穩，執行 reinstall"
+      snap remove --purge microk8s || true
+      rm -rf /var/snap/microk8s 2>/dev/null || true
+    fi
+  fi
+  if ! snap list | grep -q '^microk8s\s'; then
+    log "[act] 安裝 MicroK8s (${K8S_CHANNEL})"
+    snap install microk8s --channel="${K8S_CHANNEL}" --classic
+  fi
+  # 確保 containerd default runtime 已實際展開為 runc
+  [[ "${FORCE_RUNC}" == "true" ]] && _force_containerd_runtime_runc
+  "$MICROK8S" status --wait-ready --timeout 600 || { err "[microk8s] 服務啟動失敗"; exit 1; }
+  ok "[ok] MicroK8s 就緒"
 }
 ensure_apiserver_ready(){
   log "[wait] 等待 MicroK8s API 就緒（最多 420s）"
@@ -448,6 +1206,34 @@ images_import(){
     warn "[images] 未提供 ${HOSTPATH_PROVISIONER_TAR}，將直接使用 ${HOSTPATH_PROVISIONER_IMAGE} 線上拉取"
   fi
   if [[ -n "${COREDNS_TAR}" && -f "${COREDNS_TAR}" ]]; then log "[images] 匯入 CoreDNS 映像：${COREDNS_TAR}" || true; "$MICROK8S" images import "${COREDNS_TAR}" || warn "[images] CoreDNS tar 匯入失敗（略過）"; fi
+
+  local -a extra_offline_tars=(
+    "${GPU_OPERATOR_BUNDLE_TAR}"
+    "${GPU_OPERATOR_CORE_TAR}"
+    "${KUBE_SCHEDULER_TAR}"
+    "${NFD_TAR}"
+    "${NVIDIA_K8S_DEVICE_PLUGIN_TAR}"
+    "${NVIDIA_CONTAINER_TOOLKIT_TAR}"
+    "${NVIDIA_DCGM_EXPORTER_TAR}"
+    "${PAUSE_IMAGE_TAR}"
+    "${BUSYBOX_IMAGE_TAR}"
+  )
+  local extra_tar
+  for extra_tar in "${extra_offline_tars[@]}"; do
+    [[ -n "${extra_tar}" && -f "${extra_tar}" ]] || continue
+    log "[images] 匯入離線映像：${extra_tar}"
+    if "$MICROK8S" images import "${extra_tar}"; then
+      ok "[images] 匯入成功：${extra_tar}"
+      continue
+    fi
+    warn "[images] microk8s images import 失敗，改用 ctr 匯入 ${extra_tar}"
+    if ! CONTAINERD_NAMESPACE=k8s.io "$MICROK8S" ctr images import "${extra_tar}" >/dev/null 2>&1; then
+      warn "[images] 匯入 ${extra_tar} 失敗，請手動確認"
+    fi
+  done
+
+  _ensure_image_local "${HUB_IMAGE}" "Hub" "${HUB_IMAGE_TAR}" || true
+  _ensure_image_local "${PROXY_IMAGE}" "Proxy (CHP)" "${PROXY_IMAGE_TAR}" || true
 }
 
 # ---------- Calico 換 quay.io ----------
@@ -457,15 +1243,25 @@ wait_for_calico_ds(){
   warn "calico-node DS 尚未出現，之後會再嘗試 patch…"; return 1
 }
 patch_calico_use_quay(){
-  log "[image] 將 calico 工作負載改用 quay.io (CALICO=${CALICO_VERSION})"
-  local tmp=/tmp/calico-ds.json
-  if ! KCTL -n kube-system get ds calico-node -o json > "$tmp" 2>/dev/null; then warn "找不到 calico-node DS，略過此次 patch"; return 0; fi
-  jq --arg v "${CALICO_VERSION}" '
-    .spec.template.spec.containers |= (map(if .name=="calico-node" then .image = ("quay.io/calico/node:"+$v) else . end)) |
-    .spec.template.spec.initContainers |= (map(if (.name=="upgrade-ipam" or .name=="install-cni") then .image = ("quay.io/calico/cni:"+$v) else . end))
-  ' "$tmp" | KCTL apply -f -
-  rm -f "$tmp" || true
-  KCTL -n kube-system set image deploy/calico-kube-controllers calico-kube-controllers="quay.io/calico/kube-controllers:${CALICO_VERSION}" || true
+  [[ "${PATCH_CALICO}" != "true" ]] && { warn "[image] PATCH_CALICO=false，略過 Calico 變更"; return 0; }
+
+  log "[image] 嘗試把 calico registry 換成 quay.io（沿用現有 tag）"
+  local tmp=/tmp/calico-ds.json cur_tag node_img cni_img
+  if ! KCTL -n kube-system get ds calico-node -o json > "$tmp" 2>/dev/null; then
+    warn "找不到 calico-node DS，略過此次 patch"; return 0
+  fi
+  node_img=$(jq -r '.spec.template.spec.containers[] | select(.name=="calico-node").image' "$tmp")
+  cni_img=$(jq -r '.spec.template.spec.initContainers[] | select(.name=="install-cni" or .name=="upgrade-ipam").image' "$tmp" | head -n1)
+  cur_tag="${node_img##*:}"
+  [[ -z "$cur_tag" || "$cur_tag" == "null" ]] && cur_tag="latest"
+
+  jq \
+    --arg t "$cur_tag" \
+    '.spec.template.spec.containers |= (map(if .name=="calico-node" then .image=("quay.io/calico/node:"+$t) else . end)) |
+     .spec.template.spec.initContainers |= (map(if (.name=="upgrade-ipam" or .name=="install-cni") then .image=("quay.io/calico/cni:"+$t) else . end))' \
+    "$tmp" | KCTL apply -f -
+
+  KCTL -n kube-system set image deploy/calico-kube-controllers calico-kube-controllers="quay.io/calico/kube-controllers:${cur_tag}" || true
   KCTL -n kube-system rollout status ds/calico-node --timeout=480s || true
   KCTL -n kube-system rollout status deploy/calico-kube-controllers --timeout=480s || true
 }
@@ -552,13 +1348,7 @@ _render_profiles_json(){
     local want_cpu=$(( per_gpu_cpu*g )); local want_mem=$(( per_gpu_mem*g ))
     local use_cpu=$want_cpu; (( use_cpu>cpu_cap )) && use_cpu=$cpu_cap; (( use_cpu<1 )) && use_cpu=1
     local use_mem=$want_mem; (( use_mem>max_mem_cap )) && use_mem=$max_mem_cap; (( use_mem<4 )) && use_mem=4
-    local cuda_vis=""
-    if (( g > 0 )); then
-      local -a idx=()
-      for ((i=0;i<g;i++)); do idx+=("$i"); done
-      cuda_vis=$(IFS=,; echo "${idx[*]}")
-    fi
-    arr+=$(printf ',{"display_name":"h100-%dv","description":"%d×GPU / %d cores / %dGi","kubespawner_override":{"extra_pod_config":{"runtimeClassName":"nvidia"},"extra_resource_limits":{"nvidia.com/gpu":%d},"environment":{"CUDA_VISIBLE_DEVICES":"%s","NVIDIA_VISIBLE_DEVICES":"all","PYTORCH_CUDA_ALLOC_CONF":"expandable_segments:True","CUDA_COMPAT_PATH":"/usr/local/cuda-13.0/compat/lib.real","LD_LIBRARY_PATH":"/usr/local/cuda-13.0/compat/lib.real:/usr/local/lib/python3.12/dist-packages/torch/lib:/usr/local/lib/python3.12/dist-packages/torch_tensorrt/lib:/usr/local/cuda/compat/lib:/usr/local/nvidia/lib:/usr/local/nvidia/lib64"},"cpu_guarantee":%d,"cpu_limit":%d,"mem_guarantee":"%dG","mem_limit":"%dG"}}' "$g" "$g" "$use_cpu" "$use_mem" "$g" "$cuda_vis" "$use_cpu" "$use_cpu" "$use_mem" "$use_mem")
+    arr+=$(printf ',{"display_name":"h100-%dv","description":"%d×GPU / %d cores / %dGi","kubespawner_override":{"extra_pod_config":{"runtimeClassName":"nvidia"},"extra_resource_limits":{"nvidia.com/gpu":%d},"extra_resource_guarantees":{"nvidia.com/gpu":%d},"environment":{"PYTORCH_CUDA_ALLOC_CONF":"expandable_segments:True"},"cpu_guarantee":%d,"cpu_limit":%d,"mem_guarantee":"%dG","mem_limit":"%dG"}}' "$g" "$g" "$use_cpu" "$use_mem" "$g" "$g" "$use_cpu" "$use_cpu" "$use_mem" "$use_mem")
   done; arr+=']'
   local json="$arr"
   if [[ "${ENABLE_MIG}" == "true" ]]; then
@@ -573,13 +1363,10 @@ _render_profiles_json(){
         kubespawner_override: {
           extra_pod_config: { runtimeClassName: "nvidia" },
           environment: {
-            "CUDA_VISIBLE_DEVICES": "0",
-            "NVIDIA_VISIBLE_DEVICES": "all",
-            "PYTORCH_CUDA_ALLOC_CONF": "expandable_segments:True",
-            "CUDA_COMPAT_PATH": "/usr/local/cuda-13.0/compat/lib.real",
-            "LD_LIBRARY_PATH": "/usr/local/cuda-13.0/compat/lib.real:/usr/local/lib/python3.12/dist-packages/torch/lib:/usr/local/lib/python3.12/dist-packages/torch_tensorrt/lib:/usr/local/cuda/compat/lib:/usr/local/nvidia/lib:/usr/local/nvidia/lib64"
+            "PYTORCH_CUDA_ALLOC_CONF": "expandable_segments:True"
           },
           extra_resource_limits: {($res):1},
+          extra_resource_guarantees: {($res):1},
           cpu_guarantee: $cpu,
           cpu_limit: $cpu,
           mem_guarantee: ($mem|tostring + "G"),
@@ -658,6 +1445,96 @@ _label_mig_nodes(){
   done
 }
 
+# ---------- Containerd runtime 調整（確保 nvidia runtime 註冊） ----------
+_ensure_containerd_nvidia_runtime(){
+  local snap_current="/var/snap/microk8s/current"
+  local args_dir="${snap_current}/args"
+  local template="${args_dir}/containerd-template.toml"
+  local config="${args_dir}/containerd.toml"
+  local dropin="/etc/containerd/conf.d/99-nvidia.toml"
+
+  mkdir -p /etc/containerd/conf.d
+
+  if [[ -f "${template}" ]] && ! grep -Fq '/etc/containerd/conf.d/*.toml' "${template}"; then
+    local tmp; tmp="$(mktemp)"
+    printf 'imports = ["/etc/containerd/conf.d/*.toml"]\n' >"${tmp}"
+    cat "${template}" >>"${tmp}"
+    mv "${tmp}" "${template}"
+  fi
+  if [[ -f "${config}" ]] && ! grep -Fq '/etc/containerd/conf.d/*.toml' "${config}"; then
+    local tmp; tmp="$(mktemp)"
+    printf 'imports = ["/etc/containerd/conf.d/*.toml"]\n' >"${tmp}"
+    cat "${config}" >>"${tmp}"
+    mv "${tmp}" "${config}"
+  fi
+
+  cat <<'TOML' >"${dropin}"
+version = 2
+
+[plugins]
+
+  [plugins."io.containerd.grpc.v1.cri"]
+    enable_cdi = true
+    enable_selinux = false
+    enable_tls_streaming = false
+    max_container_log_line_size = 16384
+    sandbox_image = "registry.k8s.io/pause:3.7"
+    stats_collect_period = 10
+    stream_server_address = "127.0.0.1"
+    stream_server_port = "0"
+
+    [plugins."io.containerd.grpc.v1.cri".cni]
+      bin_dir = "/var/snap/microk8s/current/opt/cni/bin"
+      conf_dir = "/var/snap/microk8s/current/args/cni-network"
+
+    [plugins."io.containerd.grpc.v1.cri".containerd]
+      default_runtime_name = "runc"
+      no_pivot = false
+      snapshotter = "overlayfs"
+
+      [plugins."io.containerd.grpc.v1.cri".containerd.runtimes]
+
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata]
+          runtime_type = "io.containerd.kata.v2"
+
+          [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata.options]
+            BinaryName = "kata-runtime"
+
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.nvidia]
+          runtime_type = "io.containerd.runc.v2"
+
+          [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.nvidia.options]
+            BinaryName = "/usr/local/nvidia/toolkit/nvidia-container-runtime"
+
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.nvidia-cdi]
+          runtime_type = "io.containerd.runc.v2"
+
+          [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.nvidia-cdi.options]
+            BinaryName = "/usr/local/nvidia/toolkit/nvidia-container-runtime.cdi"
+
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.nvidia-container-runtime]
+          runtime_type = "io.containerd.runc.v2"
+
+          [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.nvidia-container-runtime.options]
+            BinaryName = "nvidia-container-runtime"
+
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.nvidia-legacy]
+          runtime_type = "io.containerd.runc.v2"
+
+          [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.nvidia-legacy.options]
+            BinaryName = "/usr/local/nvidia/toolkit/nvidia-container-runtime.legacy"
+
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
+          runtime_type = "io.containerd.runc.v2"
+
+    [plugins."io.containerd.grpc.v1.cri".registry]
+      config_path = "/var/snap/microk8s/current/args/certs.d"
+TOML
+
+  systemctl restart snap.microk8s.daemon-containerd
+  sleep 3
+}
+
 # ---------- 生成 values.yaml ----------
 _write_values_yaml(){
   local profiles_json; profiles_json="$(_render_profiles_json)"; mkdir -p /root/jhub
@@ -697,16 +1574,42 @@ _write_values_yaml(){
   local cull_every; cull_every="$(_ensure_numeric_or_default "${CULL_EVERY_SECONDS}" 300 "CULL_EVERY_SECONDS")"
   local cull_concurrency; cull_concurrency="$(_ensure_numeric_or_default "${CULL_CONCURRENCY}" 10 "CULL_CONCURRENCY")"
   local named_limit; named_limit="$(_ensure_numeric_or_default "${NAMED_SERVER_LIMIT}" 5 "NAMED_SERVER_LIMIT")"
-  local image_components singleuser_image_registry singleuser_image_repo singleuser_image_tag singleuser_image_digest singleuser_image_name
-  image_components="$(_split_image_components "${SINGLEUSER_IMAGE}")"
-  IFS='|' read -r singleuser_image_registry singleuser_image_repo singleuser_image_tag singleuser_image_digest <<< "${image_components}"
+  local singleuser_image_components singleuser_image_registry singleuser_image_repo singleuser_image_tag singleuser_image_digest singleuser_image_name
+  singleuser_image_components="$(_split_image_components "${SINGLEUSER_IMAGE}")"
+  IFS='|' read -r singleuser_image_registry singleuser_image_repo singleuser_image_tag singleuser_image_digest <<< "${singleuser_image_components}"
   if [[ -n "${singleuser_image_registry}" ]]; then
     singleuser_image_name="${singleuser_image_registry}/${singleuser_image_repo}"
   else
     singleuser_image_name="${singleuser_image_repo}"
   fi
+  local hub_image_components hub_image_registry hub_image_repo hub_image_tag hub_image_digest hub_image_name
+  hub_image_components="$(_split_image_components "${HUB_IMAGE}")"
+  IFS='|' read -r hub_image_registry hub_image_repo hub_image_tag hub_image_digest <<< "${hub_image_components}"
+  if [[ -n "${hub_image_registry}" ]]; then
+    hub_image_name="${hub_image_registry}/${hub_image_repo}"
+  else
+    hub_image_name="${hub_image_repo}"
+  fi
+  local proxy_image_components proxy_image_registry proxy_image_repo proxy_image_tag proxy_image_digest proxy_image_name
+  proxy_image_components="$(_split_image_components "${PROXY_IMAGE}")"
+  IFS='|' read -r proxy_image_registry proxy_image_repo proxy_image_tag proxy_image_digest <<< "${proxy_image_components}"
+  if [[ -n "${proxy_image_registry}" ]]; then
+    proxy_image_name="${proxy_image_registry}/${proxy_image_repo}"
+  else
+    proxy_image_name="${proxy_image_repo}"
+  fi
+  local treat_as_single_node="true"
+  if _cluster_enabled; then
+    treat_as_single_node="false"
+  else
+    local node_count
+    node_count=$(_k8s_node_count)
+    if (( node_count > 1 )); then
+      treat_as_single_node="false"
+    fi
+  fi
   local resolved_pull_policy="${SINGLEUSER_IMAGE_PULL_POLICY}"
-  if [[ "${resolved_pull_policy}" == "IfNotPresent" ]]; then
+  if [[ "${resolved_pull_policy}" == "IfNotPresent" && "${treat_as_single_node}" == "true" ]]; then
     local docker_prefixed_image="docker.io/${SINGLEUSER_IMAGE}"
     if _image_exists_locally "${SINGLEUSER_IMAGE}" || _image_exists_locally "${docker_prefixed_image}"; then
       resolved_pull_policy="Never"
@@ -714,15 +1617,41 @@ _write_values_yaml(){
     fi
   fi
   SINGLEUSER_IMAGE_PULL_POLICY="${resolved_pull_policy}"
+  local resolved_hub_pull_policy="${HUB_IMAGE_PULL_POLICY}"
+  if [[ "${resolved_hub_pull_policy}" == "IfNotPresent" && "${treat_as_single_node}" == "true" ]]; then
+    local docker_prefixed_hub="docker.io/${HUB_IMAGE}"
+    if _image_exists_locally "${HUB_IMAGE}" || _image_exists_locally "${docker_prefixed_hub}"; then
+      resolved_hub_pull_policy="Never"
+      log "[images] 偵測到 ${HUB_IMAGE} 已在本地，將 hub image pullPolicy 改為 Never"
+    fi
+  fi
+  HUB_IMAGE_PULL_POLICY="${resolved_hub_pull_policy}"
+  local resolved_proxy_pull_policy="${PROXY_IMAGE_PULL_POLICY}"
+  if [[ "${resolved_proxy_pull_policy}" == "IfNotPresent" && "${treat_as_single_node}" == "true" ]]; then
+    local docker_prefixed_proxy="docker.io/${PROXY_IMAGE}"
+    if _image_exists_locally "${PROXY_IMAGE}" || _image_exists_locally "${docker_prefixed_proxy}"; then
+      resolved_proxy_pull_policy="Never"
+      log "[images] 偵測到 ${PROXY_IMAGE} 已在本地，將 proxy image pullPolicy 改為 Never"
+    fi
+  fi
+  PROXY_IMAGE_PULL_POLICY="${resolved_proxy_pull_policy}"
   jq -n \
-    --arg image_name "${singleuser_image_name}" \
-    --arg image_tag "${singleuser_image_tag}" \
-    --arg image_digest "${singleuser_image_digest}" \
+    --arg singleuser_image_name "${singleuser_image_name}" \
+    --arg singleuser_image_tag "${singleuser_image_tag}" \
+    --arg singleuser_image_digest "${singleuser_image_digest}" \
+    --arg singleuser_image_pull_policy "${SINGLEUSER_IMAGE_PULL_POLICY}" \
+    --arg hub_image_name "${hub_image_name}" \
+    --arg hub_image_tag "${hub_image_tag}" \
+    --arg hub_image_digest "${hub_image_digest}" \
+    --arg hub_image_pull_policy "${HUB_IMAGE_PULL_POLICY}" \
+    --arg proxy_image_name "${proxy_image_name}" \
+    --arg proxy_image_tag "${proxy_image_tag}" \
+    --arg proxy_image_digest "${proxy_image_digest}" \
+    --arg proxy_image_pull_policy "${PROXY_IMAGE_PULL_POLICY}" \
     --arg pvc "${PVC_SIZE}" \
     --arg storage_class "${SINGLEUSER_STORAGE_CLASS}" \
     --arg shared_mount "/workspace/Storage" \
     --arg logs_mount "/var/log/jupyter" \
-    --arg image_pull_policy "${SINGLEUSER_IMAGE_PULL_POLICY}" \
     --arg csp "$csp" \
     --arg admin "${ADMIN_USER}" \
     --arg auth_class "nativeauthenticator.NativeAuthenticator" \
@@ -753,6 +1682,16 @@ _write_values_yaml(){
     "service": { 
       "type": "NodePort", 
       "nodePorts": { "http": $port } 
+    },
+    "chp": {
+      "image": (
+        {
+          "name": $proxy_image_name,
+          "pullPolicy": $proxy_image_pull_policy
+        }
+        | (if ($proxy_image_tag | length) > 0 then . + { "tag": $proxy_image_tag } else . end)
+        | (if ($proxy_image_digest | length) > 0 then . + { "digest": $proxy_image_digest } else . end)
+      )
     }
   },
   "ingress": (
@@ -789,11 +1728,11 @@ _write_values_yaml(){
   "singleuser": {
     "image": (
       {
-        "name": $image_name,
-        "pullPolicy": $image_pull_policy
+        "name": $singleuser_image_name,
+        "pullPolicy": $singleuser_image_pull_policy
       }
-      | (if ($image_tag | length) > 0 then . + { "tag": $image_tag } else . end)
-      | (if ($image_digest | length) > 0 then . + { "digest": $image_digest } else . end)
+      | (if ($singleuser_image_tag | length) > 0 then . + { "tag": $singleuser_image_tag } else . end)
+      | (if ($singleuser_image_digest | length) > 0 then . + { "digest": $singleuser_image_digest } else . end)
     ),
     "storage": {
       "dynamic": { "storageClass": $storage_class },
@@ -826,6 +1765,14 @@ _write_values_yaml(){
     "allowPrivilegeEscalation": true
   },
   "hub": {
+    "image": (
+      {
+        "name": $hub_image_name,
+        "pullPolicy": $hub_image_pull_policy
+      }
+      | (if ($hub_image_tag | length) > 0 then . + { "tag": $hub_image_tag } else . end)
+      | (if ($hub_image_digest | length) > 0 then . + { "digest": $hub_image_digest } else . end)
+    ),
     "db": {
       "type": "sqlite-pvc",
       "pvc": {
@@ -1468,35 +2415,86 @@ metadata: { name: nvidia }
 handler: nvidia
 YAML
 }
+
+_detect_gpu_driver_mode(){
+  # 輸出：在 stdout 印出最後決定的模式（host/dkms/precompiled）
+  local mode="${GPU_DRIVER_MODE}"
+  if [[ "${mode}" == "auto" ]]; then
+    if command -v nvidia-smi >/dev/null 2>&1 && nvidia-smi >/dev/null 2>&1; then
+      mode="host"
+    else
+      mode="dkms"
+    fi
+  fi
+  printf '%s' "${mode}"
+}
+
+_maybe_install_kernel_headers(){
+  [[ "${GPU_DKMS_INSTALL_HEADERS}" == "true" ]] || return 0
+  if grep -qiE 'ubuntu|debian' /etc/os-release 2>/dev/null; then
+    apt-get update -y >/dev/null 2>&1 || true
+    apt-get install -y "linux-headers-$(uname -r)" mokutil >/dev/null 2>&1 || true
+  fi
+}
+
 install_gpu_operator(){
   [[ "${USE_GPU_OPERATOR}" != "true" ]] && return 0
   KCTL -n kube-system delete ds nvidia-device-plugin-daemonset --ignore-not-found >/dev/null 2>&1 || true
   log "[GPU] 安裝 NVIDIA GPU Operator"
   helm repo add nvidia https://helm.ngc.nvidia.com/nvidia >/dev/null 2>&1 || true
   helm repo update nvidia >/dev/null 2>&1 || true
+  # 避免與 microk8s 的 nvidia addon 衝突
+  if microk8s status 2>/dev/null | grep -qE 'addons:.*nvidia: +enabled'; then
+    warn "[GPU] 偵測到 microk8s addon 'nvidia' 已啟用，先停用以免衝突"
+    microk8s disable nvidia || true
+  fi
+  _ensure_containerd_nvidia_runtime
+
   local ARGS=(--install --wait gpu-operator nvidia/gpu-operator -n gpu-operator --create-namespace)
-  [[ "${GPU_OPERATOR_DISABLE_DRIVER}" == "true" ]] && ARGS+=(--set driver.enabled=false)
+  # Toolkit / CDI（MicroK8s containerd 路徑）
   if [[ "${GPU_OPERATOR_DISABLE_TOOLKIT}" != "true" ]]; then
-    ARGS+=(--set toolkit.enabled=true --set cdi.enabled=true --set cdi.default=true)
+    ARGS+=(--set toolkit.enabled=true)
+    ARGS+=(--set cdi.enabled=false)
+    ARGS+=(--set cdi.default=false)
     ARGS+=(--set operator.defaultRuntime=containerd)
-    ARGS+=(--set toolkit.env[0].name=CONTAINERD_CONFIG --set toolkit.env[0].value="/var/snap/microk8s/current/args/containerd-template.toml")
+    ARGS+=(--set toolkit.env[0].name=CONTAINERD_CONFIG --set toolkit.env[0].value="/var/snap/microk8s/current/args/containerd.toml")
     ARGS+=(--set toolkit.env[1].name=CONTAINERD_SOCKET --set toolkit.env[1].value="/var/snap/microk8s/common/run/containerd.sock")
     ARGS+=(--set toolkit.env[2].name=CONTAINERD_RUNTIME_CLASS --set toolkit.env[2].value=nvidia)
   fi
-  if [[ "${GPU_OPERATOR_DISABLE_DRIVER}" != "true" ]]; then
-    if [[ -n "${GPU_OPERATOR_DRIVER_VERSION}" ]]; then
-      ARGS+=(--set-string driver.version="${GPU_OPERATOR_DRIVER_VERSION}")
-    fi
-    if [[ -n "${GPU_OPERATOR_DRIVER_RUNFILE_URL}" ]]; then
-      ARGS+=(--set-string driver.runfile.url="${GPU_OPERATOR_DRIVER_RUNFILE_URL}")
-    fi
-    if [[ -n "${GPU_OPERATOR_DRIVER_PKG_MANAGER}" ]]; then
-      ARGS+=(--set-string driver.manager="${GPU_OPERATOR_DRIVER_PKG_MANAGER}")
-    fi
-    ARGS+=(--set driver.manager.imagePullPolicy=IfNotPresent)
-    ARGS+=(--set driver.repository=nvcr.io/nvidia/driver --set driver.imagePullPolicy=IfNotPresent)
-    ARGS+=(--set driver.usePrecompiled=true)
-  fi
+  # CUDA validator 會跑額外 workload；在多節點環境偶爾會因資源同步慢而卡住，統一改為只跑基本檢查
+  ARGS+=(--set validator.env[0].name=WITH_WORKLOAD --set-string validator.env[0].value="false")
+  ARGS+=(--set validator.cuda.env[0].name=WITH_WORKLOAD --set-string validator.cuda.env[0].value="false")
+
+  # 決定驅動模式（優先採 GPU_DRIVER_MODE，若為 auto 則主機有驅動→host；否則 dkms）
+  local MODE; MODE="$(_detect_gpu_driver_mode)"
+  case "${MODE}" in
+    host)
+      log "[GPU] 使用 host 驅動模式（不佈署 driver）"
+      ARGS+=(--set driver.enabled=false)
+      ;;
+    dkms)
+      log "[GPU] 使用 dkms 驅動模式（編譯匹配當前 kernel）"
+      _maybe_install_kernel_headers
+      ARGS+=(--set driver.enabled=true)
+      ARGS+=(--set driver.usePrecompiled=false)
+      # 若你仍想指定版本，可沿用舊變數 GPU_OPERATOR_DRIVER_VERSION
+      [[ -n "${GPU_OPERATOR_DRIVER_VERSION}" ]] && ARGS+=(--set-string driver.version="${GPU_OPERATOR_DRIVER_VERSION}")
+      [[ -n "${GPU_OPERATOR_DRIVER_PKG_MANAGER}" ]] && ARGS+=(--set-string driver.manager="${GPU_OPERATOR_DRIVER_PKG_MANAGER}")
+      [[ -n "${GPU_OPERATOR_DRIVER_RUNFILE_URL}" ]] && ARGS+=(--set-string driver.runfile.url="${GPU_OPERATOR_DRIVER_RUNFILE_URL}")
+      ;;
+    precompiled)
+      log "[GPU] 使用 precompiled 驅動模式（預編驅動；需 kernel/版本對得上）"
+      ARGS+=(--set driver.enabled=true)
+      ARGS+=(--set driver.usePrecompiled=true)
+      [[ -n "${GPU_OPERATOR_DRIVER_VERSION}" ]] && ARGS+=(--set-string driver.version="${GPU_OPERATOR_DRIVER_VERSION}")
+      [[ -n "${GPU_OPERATOR_DRIVER_PKG_MANAGER}" ]] && ARGS+=(--set-string driver.manager="${GPU_OPERATOR_DRIVER_PKG_MANAGER}")
+      [[ -n "${GPU_OPERATOR_DRIVER_RUNFILE_URL}" ]] && ARGS+=(--set-string driver.runfile.url="${GPU_OPERATOR_DRIVER_RUNFILE_URL}")
+      ;;
+    *)
+      warn "[GPU] 未知 GPU_DRIVER_MODE='${MODE}'，回退為 host"
+      ARGS+=(--set driver.enabled=false)
+      ;;
+  esac
   if [[ "${ENABLE_MIG}" == "true" ]]; then
     local gpu_ns="gpu-operator"
     local mig_cm="${MIG_CONFIGMAP_NAME:-jhub-mig-config}"
@@ -1527,6 +2525,10 @@ YAML
     ARGS+=(--set-string migManager.config.default="${mig_default}")
     log "[GPU][MIG] MIG_CONFIG_DEFAULT=${mig_default}；將自動標記節點以套用 ${mig_profile}"
     _label_mig_nodes
+  else
+    # 明確關閉 MIG 相關元件，避免預設值觸發 GPU 驗證失敗
+    ARGS+=(--set migManager.enabled=false)
+    ARGS+=(--set-string mig.strategy=none)
   fi
   [[ -n "${GPU_OPERATOR_VERSION}" ]] && ARGS+=(--version "${GPU_OPERATOR_VERSION}")
   helm upgrade "${ARGS[@]}"
@@ -1535,7 +2537,7 @@ YAML
 
 # ---------- CUDA 冒煙測試（可略過） ----------
 deploy_cuda_smoketest(){
-  if ! CTR images ls | awk '{print $1}' | grep -q '^docker.io/nvidia/cuda:12.4.1-base-ubuntu22.04$'; then
+  if ! CTR images ls | awk '{print $1}' | grep -q 'nvidia/cuda:12.4.1-base-ubuntu22.04'; then
     warn "[cuda] 未發現已側載的 nvidia/cuda:12.4.1-base-ubuntu22.04，略過冒煙測試"
     return 0
   fi
@@ -1621,7 +2623,27 @@ NS="${1:-jhub}"
 echo "== Pods in $NS =="; microk8s kubectl -n "$NS" get pods -o wide || true
 echo "== CoreDNS =="; microk8s kubectl -n kube-system get deploy coredns; microk8s kubectl -n kube-system get pod -l k8s-app=kube-dns -o wide || true
 echo "== Events (last 50) =="; microk8s kubectl -n "$NS" get events --sort-by=.lastTimestamp | tail -n 50 || true
-echo "== Hub logs (tail) =="; pod=$(microk8s kubectl -n "$NS" get pods -l component=hub -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true); [[ -n "$pod" ]] && microk8s kubectl -n "$NS" logs "$pod" --tail=100 || true
+echo "== Hub describe (events last) =="; microk8s kubectl -n "$NS" describe pod -l component=hub | tail -n +1 || true
+echo "== PVCs (wide) =="; microk8s kubectl -n "$NS" get pvc -o wide || true
+echo "== StorageClasses =="; microk8s kubectl get sc || true
+echo "== hostpath-provisioner events =="; \
+  HP=$(microk8s kubectl -n kube-system get pod -l k8s-app=hostpath-provisioner -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true); \
+  [[ -n "${HP:-}" ]] && microk8s kubectl -n kube-system describe pod "$HP" | egrep -i 'Image|Pull|Err|Fail|Mount|Reason|Warning' || true
+
+echo "== GPU-Operator pods =="; microk8s kubectl -n gpu-operator get pods -o wide || true
+echo "== GPU-Operator validator initContainers =="; \
+  for P in $(microk8s kubectl -n gpu-operator get pod -l app=nvidia-operator-validator -o jsonpath='{.items[*].metadata.name}' 2>/dev/null); do \
+    echo "-- $P --"; microk8s kubectl -n gpu-operator get pod "$P" -o jsonpath='{range .spec.initContainers[*]}{.name}{" "}{end}{"\n"}' || true; \
+  done
+echo "== GPU-Operator validator logs (best-effort) =="; \
+  for P in $(microk8s kubectl -n gpu-operator get pod -l app=nvidia-operator-validator -o jsonpath='{.items[*].metadata.name}' 2>/dev/null); do \
+    for C in $(microk8s kubectl -n gpu-operator get pod "$P" -o jsonpath='{range .spec.initContainers[*]}{.name}{" "}{end}'); do \
+      echo "---- $P / $C ----"; microk8s kubectl -n gpu-operator logs "$P" -c "$C" --tail=120 || true; \
+    done; \
+  done
+echo "== RuntimeClass / containerd check =="; \
+  microk8s kubectl get runtimeclass nvidia || true; \
+  grep -n 'nvidia' /var/snap/microk8s/current/args/containerd-template.toml || true
 EOS
   chmod +x /usr/local/bin/jhub-diag
 }
@@ -1629,19 +2651,26 @@ EOS
 # ---------- 主要流程 ----------
 main(){
   require_root
+  ensure_lowercase_hostname
   ensure_env
+  if [[ ! -d "${OFFLINE_IMAGE_DIR}" ]]; then
+    warn "[offline] 找不到離線映像目錄 ${OFFLINE_IMAGE_DIR}，將自動建立（請先放入所需 tar 檔）"
+    mkdir -p "${OFFLINE_IMAGE_DIR}"
+  fi
   preflight_sysctl
   ensure_microk8s
   _ensure_kubelet_image_gc_disabled
   if is_rhel; then need_pkg curl jq tar ca-certificates iproute; else need_pkg curl ca-certificates jq tar; fi
   ensure_helm
-  images_import
   ensure_apiserver_ready
+  ensure_cluster_nodes
+  images_import
 
   wait_for_calico_ds || true
   patch_calico_use_quay
 
   ensure_dns_and_storage
+  wait_all_nodes_ready
 
   # 先建 namespace 與本地 PV/PVC（Storage 與 Logs）
   KCTL get ns "${JHUB_NS}" >/dev/null 2>&1 || KCTL create ns "${JHUB_NS}"
@@ -1698,6 +2727,18 @@ main(){
   # CUDA 冒煙（若側載）
   if [[ "${USE_GPU_OPERATOR}" == "true" ]]; then deploy_cuda_smoketest || true; fi
 
+  local -a cluster_ip_arr=()
+  if _cluster_enabled; then
+    while IFS= read -r ip; do
+      [[ -z "${ip}" ]] && continue
+      cluster_ip_arr+=("${ip}")
+    done < <(_cluster_ip_list)
+  fi
+  local cluster_nodes="單節點（預設）"
+  if ((${#cluster_ip_arr[@]})); then
+    cluster_nodes=$(IFS=', '; echo "${cluster_ip_arr[*]}")
+  fi
+
   cat <<EOF
 
 ============================================================
@@ -1712,6 +2753,8 @@ main(){
 ▶ 診斷工具：sudo jhub-diag ${JHUB_NS}
 ▶ Service：NodePort:${NODEPORT_FALLBACK_PORT}
 ▶ HTML 快速入口：/root/jhub/index.html（模板來源：$(pwd)/index.html）
+▶ 叢集節點：${cluster_nodes}
+▶ 多節點側載：Notebook/Calico/HostPath/CoreDNS 映像已自動同步到 worker（如檔案存在）
 
 ▶ Adminuser API（免登入直連）：
     http://<node_ip>:${ADMINUSER_NODEPORT}/…   （Notebook 內請監聽 0.0.0.0:${ADMINUSER_TARGET_PORT}）
