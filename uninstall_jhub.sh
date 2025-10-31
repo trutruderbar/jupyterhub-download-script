@@ -11,6 +11,13 @@ NO_HELM=false           # 不執行 helm 卸載
 NO_OPERATORS=false      # 不處理 GPU/Network Operator
 FORCE=true              # 預設強制清乾淨
 DRY_RUN=false
+DEFAULT_HOST_IP="$(hostname -I 2>/dev/null | awk '{for(i=1;i<=NF;i++) if ($i !~ /^127\./) {print $i; exit}}')"
+if [[ -z "${DEFAULT_HOST_IP}" ]] && command -v ip >/dev/null 2>&1; then
+  DEFAULT_HOST_IP="$(ip route get 1.1.1.1 2>/dev/null | awk 'NR==1 {for(i=1;i<=NF;i++) if ($i=="src") {print $(i+1); exit}}')"
+fi
+[[ -z "${DEFAULT_HOST_IP}" ]] && DEFAULT_HOST_IP="localhost"
+
+: "${MICROK8S_API_HOST:=${DEFAULT_HOST_IP}}"
 
 for arg in "$@"; do
   case "$arg" in
@@ -42,6 +49,21 @@ log(){ echo -e "\e[1;36m$*\e[0m"; }
 ok(){ echo -e "\e[1;32m$*\e[0m"; }
 warn(){ echo -e "\e[1;33m$*\e[0m"; }
 err(){ echo -e "\e[1;31m$*\e[0m" 1>&2; }
+
+ensure_env(){
+  export PATH="/snap/bin:/usr/local/bin:$PATH"
+  [[ -f /etc/profile.d/snap_path.sh ]] || { echo 'export PATH="/snap/bin:/usr/local/bin:$PATH"' >/etc/profile.d/snap_path.sh; chmod 644 /etc/profile.d/snap_path.sh; }
+  export KUBECONFIG="/var/snap/microk8s/current/credentials/client.config"
+  local cfg="$KUBECONFIG"
+  if [[ -f "$cfg" ]] && ! grep -q "https://${MICROK8S_API_HOST}:16443" "$cfg"; then
+    if $DRY_RUN; then
+      echo "[dry-run] update kubeconfig server → https://${MICROK8S_API_HOST}:16443"
+    else
+      sed -i "s#server: https://[^:]*:16443#server: https://${MICROK8S_API_HOST}:16443#g" "$cfg" || true
+    fi
+  fi
+}
+ensure_env
 
 is_cmd(){ command -v "$1" >/dev/null 2>&1; }
 is_deb(){ [ -f /etc/debian_version ]; }
@@ -84,10 +106,23 @@ helm_uninstall_all(){
   if ! is_cmd "$HELM_BIN"; then warn "[helm] 未安裝 helm，略過"; return 0; fi
 
   log "[helm] 卸載 JupyterHub / Operators（若存在）"
-  # JupyterHub release
-  run "$HELM_BIN -n jhub uninstall jhub || true"   # 參考：Helm uninstall 指令。
-  $NO_OPERATORS || run "$HELM_BIN -n gpu-operator uninstall gpu-operator || true"
-  $NO_OPERATORS || run "$HELM_BIN -n nvidia-network-operator uninstall network-operator || true"  # NVIDIA Network Operator 官方建議以 Helm 卸載。
+  if $HELM_BIN -n jhub status jhub >/dev/null 2>&1; then
+    run "$HELM_BIN -n jhub uninstall jhub || true"
+  else
+    warn "[helm] release jhub 不存在，略過卸載"
+  fi
+  if ! $NO_OPERATORS; then
+    if $HELM_BIN -n gpu-operator status gpu-operator >/dev/null 2>&1; then
+      run "$HELM_BIN -n gpu-operator uninstall gpu-operator || true"
+    else
+      warn "[helm] release gpu-operator 不存在，略過卸載"
+    fi
+    if $HELM_BIN -n nvidia-network-operator status network-operator >/dev/null 2>&1; then
+      run "$HELM_BIN -n nvidia-network-operator uninstall network-operator || true"
+    else
+      warn "[helm] release network-operator 不存在，略過卸載"
+    fi
+  fi
 }
 
 delete_namespaces_and_crds(){
