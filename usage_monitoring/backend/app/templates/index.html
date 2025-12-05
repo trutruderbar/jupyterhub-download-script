@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Usage Portal</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <div id="login-screen" class="login-screen" aria-live="polite">
+      <form id="login-form" class="login-card" novalidate autocomplete="off">
+        <div class="login-brand">
+          <img src="/static/login-logo.png" alt="Ubilink logo" />
+          <div>
+            <h2>Usage Portal 登入</h2>
+            <p>請使用管理帳號登入以控管資源用量。</p>
+          </div>
+        </div>
+        <label class="field">
+          <span>帳號</span>
+          <input id="login-account" type="text" autocomplete="username" placeholder="管理者帳號" />
+        </label>
+        <label class="field password-field">
+          <span>密碼</span>
+          <input id="login-password" type="password" autocomplete="current-password" placeholder="••••••••" />
+          <button id="btn-toggle-password" type="button" aria-label="顯示密碼"></button>
+          <span id="caps-indicator" class="caps-hint">CapsLock 已開</span>
+        </label>
+        <label class="remember">
+          <input id="login-remember" type="checkbox" />
+          <span>記住我</span>
+        </label>
+        <button id="btn-login" type="submit" class="btn primary" disabled aria-disabled="true">
+          <span class="spinner" id="login-spinner"></span>
+          <span>登入</span>
+        </button>
+        <div id="login-error" class="error" aria-live="assertive"></div>
+      </form>
+    </div>
+
+    <div id="portal-shell" hidden>
+      <header class="portal-head">
+        <div class="head-brand">
+          <img src="/static/login-logo.png" alt="Usage Monitor logo" />
+          <div>
+            <p class="eyebrow">Usage Monitor</p>
+            <h1>JupyterHub Usage Monitor</h1>
+          </div>
+        </div>
+        <div class="head-actions">
+          <button type="button" class="btn ghost" id="global-refresh">重新整理</button>
+          <button type="button" class="btn ghost" id="pod-sync-now">立即同步</button>
+          <span id="pod-sync-status" class="muted small sync-status"></span>
+          <div class="head-user">
+            <span id="portal-user-name" class="user-label">—</span>
+            <button type="button" class="logout" id="btn-logout" title="登出">登出</button>
+          </div>
+        </div>
+      </header>
+      <nav class="primary-tabs" id="primary-tabs">
+        <button class="primary-tab active" data-section-button="users">用戶管理</button>
+        <button class="primary-tab" data-section-button="machines">實體機管理</button>
+        <button class="primary-tab" data-section-button="help">使用說明</button>
+      </nav>
+
+      <section class="portal-section" data-section="users">
+        <div class="layout">
+          <aside class="sidebar">
+            <h2 class="sidebar-title">使用者清單</h2>
+            <div class="sidebar-actions">
+              <input id="user-search" type="search" placeholder="搜尋名稱或帳號" />
+            </div>
+            <div id="user-list" class="user-list"></div>
+            <div id="user-pagination" class="pagination"></div>
+          </aside>
+
+          <main class="main">
+            <div id="user-header" class="main-header muted">
+              請從左側選擇使用者以檢視使用紀錄與啟動中的 Pods。
+            </div>
+            <div class="tabs" id="main-tabs">
+              <button class="tab active" data-tab="usage">使用紀錄</button>
+              <button class="tab" data-tab="pods">啟動中的 Pods</button>
+            </div>
+
+            <section class="tab-pane active" data-pane="usage">
+              <div class="alert info">系統依 GPU 申請量估算成本（4 USD / GPU / hour），僅供參考。</div>
+              <div id="usage-stats" class="card-grid compact"></div>
+              <div id="usage-table" class="card muted">尚未選擇使用者。</div>
+              <div id="usage-pagination" class="pagination"></div>
+            </section>
+
+            <section class="tab-pane" data-pane="pods">
+              <div class="pods-actions">
+                <button id="pod-delete-selected" class="btn danger" disabled>關閉選取的 Pods</button>
+                <span id="pod-delete-status" class="pods-status muted"></span>
+              </div>
+              <div id="pods-summary" class="card-grid compact pods-summary"></div>
+              <div id="pods-list" class="card muted">尚未選擇使用者。</div>
+              <div id="pods-pagination" class="pagination"></div>
+            </section>
+          </main>
+        </div>
+      </section>
+
+      <section class="portal-section" data-section="machines" hidden>
+        <div class="layout machine-layout">
+          <main class="main machine-main">
+            <div class="machine-toolbar">
+              <div>
+                <h2>實體機狀態</h2>
+                <p id="machine-updated" class="muted small toolbar-note">尚未載入</p>
+              </div>
+            </div>
+            <div class="card-grid compact" id="machine-summary"></div>
+            <div class="card machine-table">
+              <div class="table-header">
+                <h3>節點列表</h3>
+                <span class="muted small">來自 microk8s kubectl get nodes</span>
+              </div>
+              <div class="table-scroll">
+                <table class="table">
+                  <thead>
+                    <tr>
+                      <th>節點</th>
+                      <th>狀態</th>
+                      <th>CPU (核)</th>
+                      <th>記憶體 (GiB)</th>
+                      <th>GPU</th>
+                      <th>系統</th>
+                    </tr>
+                  </thead>
+                  <tbody id="machine-rows">
+                    <tr><td colspan="6" class="muted">尚未載入。</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </main>
+          <aside class="sidebar machine-sidebar">
+            <div class="card machine-action">
+              <h3>新增實體機 (./add_node.sh)</h3>
+              <p class="muted small">填入 SSH 資訊後，系統會於此管理機執行 <code>add_node.sh</code> 將 worker 加入 MicroK8s。</p>
+              <form id="machine-add-form" class="machine-form" autocomplete="off">
+                <label>
+                  Worker IP
+                  <input type="text" name="add-ip" placeholder="10.x.x.x" required />
+                </label>
+                <label>
+                  SSH 使用者
+                  <input type="text" name="add-user" value="root" />
+                </label>
+                <label>
+                  SSH 密碼
+                  <input type="password" name="add-pass" required />
+                </label>
+                <label>
+                  SSH Port
+                  <input type="number" name="add-port" value="22" min="1" />
+                </label>
+                <button type="submit" class="btn primary full">執行 add_node.sh</button>
+              </form>
+              <pre id="machine-add-log" class="script-log muted">尚未執行。</pre>
+            </div>
+            <div class="card machine-action">
+              <h3>刪除實體機 (./del_node.sh)</h3>
+              <p class="muted small">可選擇先 cordon/drain、強制移除，並視需求執行遠端 MicroK8s 清理。</p>
+              <form id="machine-del-form" class="machine-form" autocomplete="off">
+                <label>
+                  Kubernetes 節點名稱
+                  <input type="text" name="del-node" placeholder="worker-01" required />
+                </label>
+                <label class="checkbox">
+                  <input type="checkbox" name="del-drain" checked />
+                  <span>執行 cordon / drain</span>
+                </label>
+                <label class="checkbox">
+                  <input type="checkbox" name="del-force" />
+                  <span>microk8s remove-node --force</span>
+                </label>
+                <label class="checkbox">
+                  <input type="checkbox" name="del-remote-toggle" id="del-remote-toggle" />
+                  <span>同時遠端卸載 MicroK8s</span>
+                </label>
+                <div class="remote-fields" data-remote-area hidden>
+                  <label>
+                    Worker IP
+                    <input type="text" name="del-remote-ip" placeholder="10.x.x.x" />
+                  </label>
+                  <label>
+                    SSH 使用者
+                    <input type="text" name="del-remote-user" value="root" />
+                  </label>
+                  <label>
+                    SSH 密碼
+                    <input type="password" name="del-remote-pass" />
+                  </label>
+                  <label>
+                    SSH Port
+                    <input type="number" name="del-remote-port" value="22" min="1" />
+                  </label>
+                </div>
+                <button type="submit" class="btn danger full">執行 del_node.sh</button>
+              </form>
+              <pre id="machine-del-log" class="script-log muted">尚未執行。</pre>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <section class="portal-section" data-section="help" hidden>
+        <div class="help-grid">
+          <div class="card help-card">
+            <h3>介面導覽</h3>
+            <p>整體分成三個模組，並在上方提供單一 <em>重新整理</em> 按鈕同步更新資料：</p>
+            <ol class="help-steps">
+              <li>登入後預設進入「用戶管理」，可搜尋/切換使用者、檢視 Sessions 與 Pods。</li>
+              <li>切到「實體機管理」可查看節點健康度、資源摘要與執行 <code>add_node.sh</code>/<code>del_node.sh</code>。</li>
+              <li>「使用說明」彙整常用指令、SOP 與疑難排解提示，方便快速查詢。</li>
+            </ol>
+          </div>
+          <div class="card help-card">
+            <h3>用戶管理流程</h3>
+            <ul class="help-list">
+              <li>左側清單支援模糊搜尋，點選後即可在右側調整 CPU/Memory/GPU 限額。</li>
+              <li>「啟動中的 Pods」支援勾選多個 Pod 並按「關閉選取的 Pods」，可用於清理離線資源。</li>
+              <li>若使用者被設為 0 GPU，Portal hook 會阻擋 GPU profile，避免意外啟動。</li>
+              <li>所有變更都即時儲存在後端，無須重新部署 Helm；建議修改完按頂端重新整理確認狀態。</li>
+            </ul>
+          </div>
+          <div class="card help-card">
+            <h3>實體機管理操作</h3>
+            <ul class="help-list">
+              <li>節點列表與摘要來自 <code>microk8s kubectl get nodes</code>，可快速檢查 Ready/資源使用。</li>
+              <li>新增節點時需提供 SSH 帳號/密碼，Portal 會透過 <code>add_node.sh</code> 完成 microk8s join。</li>
+              <li>刪除節點可勾選 <strong>強制移除</strong> 或遠端清理；錯誤訊息會附上建議處置（例如先在節點執行 <code>microk8s leave</code>）。</li>
+              <li>若任務長時間執行，可使用伺服器上的 <code>portal.log</code> 觀察腳本細節。</li>
+            </ul>
+          </div>
+          <div class="card help-card">
+            <h3>常用腳本與端點</h3>
+            <ul class="help-list">
+              <li><code>./install_jhub.sh</code>：離線安裝/升級 JupyterHub，支援 Ubilink SSO/Portal hook。</li>
+              <li><code>./start_usage_portal.sh</code>：啟動 Usage Portal（FastAPI + 前端 + PostgreSQL）。</li>
+              <li><code>./add_node.sh</code>/<code>./del_node.sh</code>：加入/移除 MicroK8s worker，包含 NFS client 安裝與 dqlite 檢查。</li>
+              <li><code>./fix_cpu_mode.py</code>：協助容器在 CPU/GPU 模式間切換 <code>CUDA_VISIBLE_DEVICES</code>。</li>
+              <li>JupyterHub 重要端點：<code>/hub/login</code>、<code>/hub/api</code>、<code>/api/usage</code>（Portal 取得即時 Pod 資訊）。</li>
+            </ul>
+          </div>
+          <div class="card help-card">
+            <h3>節點需求與疑難排解</h3>
+            <ul class="help-list">
+              <li>作業系統：Ubuntu 22.04/24.04 或相容發行版，需提供 SSH 與 sudo 權限。</li>
+              <li>網路：允許 16443 及 25000-25100 等 MicroK8s Port，並開放 `/root/tony/install_jhub_oauth_local/Storage` 的 NFS 存取。</li>
+              <li>GPU：需安裝與叢集一致的 NVIDIA driver/CUDA，Portal 會自動安裝 <code>nfs-common</code>/<code>nfs-utils</code>。</li>
+              <li>刪除節點若遇到「registered with dqlite」訊息，請先在該節點 <code>microk8s leave</code>，或勾選「強制移除」。</li>
+              <li>若 Pod 無法跨節點，確認 NFS 目錄 (`/srv/jhub-shared`) 已成功掛載，並檢查 Usage Portal 的提示訊息。</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div id="portal-toast" class="toast" role="status"></div>
+
+    <script>
+      window.AppConfig = {
+        tokenProtected: {{ 'true' if token_protected else 'false' }},
+        apiToken: {{ api_token | tojson }}
+      };
+      window.LoginConfig = {
+        apiAuth: {{ login_api | tojson }},
+        rememberKey: 'usage_portal'
+      };
+    </script>
+    <script src="/static/dashboard.js"></script>
+  </body>
+</html>

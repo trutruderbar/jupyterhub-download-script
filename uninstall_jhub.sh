@@ -4,6 +4,14 @@
 #           + MicroK8s + CNI殘留 + containerd影像 + 本機 helm/kubectl 殘件
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
+LIB_DIR="${SCRIPT_DIR}/lib"
+if [[ -r "${LIB_DIR}/env-loader.sh" ]]; then
+  # shellcheck source=lib/env-loader.sh
+  source "${LIB_DIR}/env-loader.sh"
+  load_jhub_env "${SCRIPT_DIR}"
+fi
+
 ### ========= 使用方式與選項 =========
 KEEP_STORAGE=false      # 保留 ./Storage 與 /var/log/jupyterhub
 KEEP_IMAGES=false       # 保留 containerd 影像
@@ -190,6 +198,9 @@ if command -v snap >/dev/null 2>&1; then
   snap remove --purge microk8s >/dev/null 2>&1 || true
 fi
 rm -rf /var/snap/microk8s 2>/dev/null || true
+rm -rf /var/snap/microk8s/current/cluster 2>/dev/null || true
+rm -rf /var/snap/microk8s/current/var/kubernetes/backend 2>/dev/null || true
+rm -f /var/snap/microk8s/common/cluster-info.yaml /var/snap/microk8s/current/cluster-info.yaml 2>/dev/null || true
 rm -rf /root/jhub /var/log/jupyterhub 2>/dev/null || true
 rm -f /usr/local/bin/jhub-portforward /usr/local/bin/jhub-diag 2>/dev/null || true
 rm -f /var/run/jhub-pf.pid /var/run/jhub-adminuser-pf.pid 2>/dev/null || true

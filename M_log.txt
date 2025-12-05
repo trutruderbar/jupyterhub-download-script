@@ -1,0 +1,1446 @@
+[usage-portal] 啟動 PostgreSQL (docker compose)
+ Container usage_monitoring-db-1  Running
+[usage-portal] 安裝/更新 Python 套件
+Requirement already satisfied: fastapi==0.111.0 in ./usage_monitoring/.venv/lib/python3.10/site-packages (from -r /home/user/install_jhub_oauth_local/usage_monitoring/backend/requirements.txt (line 1)) (0.111.0)
+Requirement already satisfied: uvicorn==0.29.0 in ./usage_monitoring/.venv/lib/python3.10/site-packages (from uvicorn[standard]==0.29.0->-r /home/user/install_jhub_oauth_local/usage_monitoring/backend/requirements.txt (line 2)) (0.29.0)
+Requirement already satisfied: SQLAlchemy==2.0.30 in ./usage_monitoring/.venv/lib/python3.10/site-packages (from -r /home/user/install_jhub_oauth_local/usage_monitoring/backend/requirements.txt (line 3)) (2.0.30)
+Requirement already satisfied: psycopg2-binary==2.9.9 in ./usage_monitoring/.venv/lib/python3.10/site-packages (from -r /home/user/install_jhub_oauth_local/usage_monitoring/backend/requirements.txt (line 4)) (2.9.9)
+Requirement already satisfied: python-multipart==0.0.9 in ./usage_monitoring/.venv/lib/python3.10/site-packages (from -r /home/user/install_jhub_oauth_local/usage_monitoring/backend/requirements.txt (line 5)) (0.0.9)
+Requirement already satisfied: pydantic==2.7.1 in ./usage_monitoring/.venv/lib/python3.10/site-packages (from pydantic[email]==2.7.1->-r /home/user/install_jhub_oauth_local/usage_monitoring/backend/requirements.txt (line 6)) (2.7.1)
+Requirement already satisfied: alembic==1.13.1 in ./usage_monitoring/.venv/lib/python3.10/site-packages (from -r /home/user/install_jhub_oauth_local/usage_monitoring/backend/requirements.txt (line 7)) (1.13.1)
+Requirement already satisfied: Jinja2==3.1.4 in ./usage_monitoring/.venv/lib/python3.10/site-packages (from -r /home/user/install_jhub_oauth_local/usage_monitoring/backend/requirements.txt (line 8)) (3.1.4)
+Requirement already satisfied: mysql-connector-python==9.5.0 in ./usage_monitoring/.venv/lib/python3.10/site-packages (from -r /home/user/install_jhub_oauth_local/usage_monitoring/backend/requirements.txt (line 9)) (9.5.0)
+Requirement already satisfied: starlette<0.38.0,>=0.37.2 in ./usage_monitoring/.venv/lib/python3.10/site-packages (from fastapi==0.111.0->-r /home/user/install_jhub_oauth_local/usage_monitoring/backend/requirements.txt (line 1)) (0.37.2)
+Requirement already satisfied: typing-extensions>=4.8.0 in ./usage_monitoring/.venv/lib/python3.10/site-packages (from fastapi==0.111.0->-r /home/user/install_jhub_oauth_local/usage_monitoring/backend/requirements.txt (line 1)) (4.15.0)
+Requirement already satisfied: fastapi-cli>=0.0.2 in ./usage_monitoring/.venv/lib/python3.10/site-packages (from fastapi==0.111.0->-r /home/user/install_jhub_oauth_local/usage_monitoring/backend/requirements.txt (line 1)) (0.0.16)
+Requirement already satisfied: httpx>=0.23.0 in ./usage_monitoring/.venv/lib/python3.10/site-packages (from fastapi==0.111.0->-r /home/user/install_jhub_oauth_local/usage_monitoring/backend/requirements.txt (line 1)) (0.28.1)
+Requirement already satisfied: ujson!=4.0.2,!=4.1.0,!=4.2.0,!=4.3.0,!=5.0.0,!=5.1.0,>=4.0.1 in ./usage_monitoring/.venv/lib/python3.10/site-packages (from fastapi==0.111.0->-r /home/user/install_jhub_oauth_local/usage_monitoring/backend/requirements.txt (line 1)) (5.11.0)
+Requirement already satisfied: orjson>=3.2.1 in ./usage_monitoring/.venv/lib/python3.10/site-packages (from fastapi==0.111.0->-r /home/user/install_jhub_oauth_local/usage_monitoring/backend/requirements.txt (line 1)) (3.11.4)
+Requirement already satisfied: email_validator>=2.0.0 in ./usage_monitoring/.venv/lib/python3.10/site-packages (from fastapi==0.111.0->-r /home/user/install_jhub_oauth_local/usage_monitoring/backend/requirements.txt (line 1)) (2.3.0)
+Requirement already satisfied: annotated-types>=0.4.0 in ./usage_monitoring/.venv/lib/python3.10/site-packages (from pydantic==2.7.1->pydantic[email]==2.7.1->-r /home/user/install_jhub_oauth_local/usage_monitoring/backend/requirements.txt (line 6)) (0.7.0)
+Requirement already satisfied: pydantic-core==2.18.2 in ./usage_monitoring/.venv/lib/python3.10/site-packages (from pydantic==2.7.1->pydantic[email]==2.7.1->-r /home/user/install_jhub_oauth_local/usage_monitoring/backend/requirements.txt (line 6)) (2.18.2)
+Requirement already satisfied: click>=7.0 in ./usage_monitoring/.venv/lib/python3.10/site-packages (from uvicorn==0.29.0->uvicorn[standard]==0.29.0->-r /home/user/install_jhub_oauth_local/usage_monitoring/backend/requirements.txt (line 2)) (8.3.1)
+Requirement already satisfied: h11>=0.8 in ./usage_monitoring/.venv/lib/python3.10/site-packages (from uvicorn==0.29.0->uvicorn[standard]==0.29.0->-r /home/user/install_jhub_oauth_local/usage_monitoring/backend/requirements.txt (line 2)) (0.16.0)
+Requirement already satisfied: greenlet!=0.4.17 in ./usage_monitoring/.venv/lib/python3.10/site-packages (from SQLAlchemy==2.0.30->-r /home/user/install_jhub_oauth_local/usage_monitoring/backend/requirements.txt (line 3)) (3.2.4)
+Requirement already satisfied: Mako in ./usage_monitoring/.venv/lib/python3.10/site-packages (from alembic==1.13.1->-r /home/user/install_jhub_oauth_local/usage_monitoring/backend/requirements.txt (line 7)) (1.3.10)
+Requirement already satisfied: MarkupSafe>=2.0 in ./usage_monitoring/.venv/lib/python3.10/site-packages (from Jinja2==3.1.4->-r /home/user/install_jhub_oauth_local/usage_monitoring/backend/requirements.txt (line 8)) (3.0.3)
+Requirement already satisfied: httptools>=0.5.0 in ./usage_monitoring/.venv/lib/python3.10/site-packages (from uvicorn[standard]==0.29.0->-r /home/user/install_jhub_oauth_local/usage_monitoring/backend/requirements.txt (line 2)) (0.7.1)
+Requirement already satisfied: python-dotenv>=0.13 in ./usage_monitoring/.venv/lib/python3.10/site-packages (from uvicorn[standard]==0.29.0->-r /home/user/install_jhub_oauth_local/usage_monitoring/backend/requirements.txt (line 2)) (1.2.1)
+Requirement already satisfied: pyyaml>=5.1 in ./usage_monitoring/.venv/lib/python3.10/site-packages (from uvicorn[standard]==0.29.0->-r /home/user/install_jhub_oauth_local/usage_monitoring/backend/requirements.txt (line 2)) (6.0.3)
+Requirement already satisfied: uvloop!=0.15.0,!=0.15.1,>=0.14.0 in ./usage_monitoring/.venv/lib/python3.10/site-packages (from uvicorn[standard]==0.29.0->-r /home/user/install_jhub_oauth_local/usage_monitoring/backend/requirements.txt (line 2)) (0.22.1)
+Requirement already satisfied: watchfiles>=0.13 in ./usage_monitoring/.venv/lib/python3.10/site-packages (from uvicorn[standard]==0.29.0->-r /home/user/install_jhub_oauth_local/usage_monitoring/backend/requirements.txt (line 2)) (1.1.1)
+Requirement already satisfied: websockets>=10.4 in ./usage_monitoring/.venv/lib/python3.10/site-packages (from uvicorn[standard]==0.29.0->-r /home/user/install_jhub_oauth_local/usage_monitoring/backend/requirements.txt (line 2)) (15.0.1)
+Requirement already satisfied: anyio<5,>=3.4.0 in ./usage_monitoring/.venv/lib/python3.10/site-packages (from starlette<0.38.0,>=0.37.2->fastapi==0.111.0->-r /home/user/install_jhub_oauth_local/usage_monitoring/backend/requirements.txt (line 1)) (4.12.0)
+Requirement already satisfied: exceptiongroup>=1.0.2 in ./usage_monitoring/.venv/lib/python3.10/site-packages (from anyio<5,>=3.4.0->starlette<0.38.0,>=0.37.2->fastapi==0.111.0->-r /home/user/install_jhub_oauth_local/usage_monitoring/backend/requirements.txt (line 1)) (1.3.1)
+Requirement already satisfied: idna>=2.8 in ./usage_monitoring/.venv/lib/python3.10/site-packages (from anyio<5,>=3.4.0->starlette<0.38.0,>=0.37.2->fastapi==0.111.0->-r /home/user/install_jhub_oauth_local/usage_monitoring/backend/requirements.txt (line 1)) (3.11)
+Requirement already satisfied: dnspython>=2.0.0 in ./usage_monitoring/.venv/lib/python3.10/site-packages (from email_validator>=2.0.0->fastapi==0.111.0->-r /home/user/install_jhub_oauth_local/usage_monitoring/backend/requirements.txt (line 1)) (2.8.0)
+Requirement already satisfied: typer>=0.15.1 in ./usage_monitoring/.venv/lib/python3.10/site-packages (from fastapi-cli>=0.0.2->fastapi==0.111.0->-r /home/user/install_jhub_oauth_local/usage_monitoring/backend/requirements.txt (line 1)) (0.20.0)
+Requirement already satisfied: rich-toolkit>=0.14.8 in ./usage_monitoring/.venv/lib/python3.10/site-packages (from fastapi-cli>=0.0.2->fastapi==0.111.0->-r /home/user/install_jhub_oauth_local/usage_monitoring/backend/requirements.txt (line 1)) (0.17.0)
+Requirement already satisfied: tomli>=2.0.0 in ./usage_monitoring/.venv/lib/python3.10/site-packages (from fastapi-cli>=0.0.2->fastapi==0.111.0->-r /home/user/install_jhub_oauth_local/usage_monitoring/backend/requirements.txt (line 1)) (2.3.0)
+Requirement already satisfied: certifi in ./usage_monitoring/.venv/lib/python3.10/site-packages (from httpx>=0.23.0->fastapi==0.111.0->-r /home/user/install_jhub_oauth_local/usage_monitoring/backend/requirements.txt (line 1)) (2025.11.12)
+Requirement already satisfied: httpcore==1.* in ./usage_monitoring/.venv/lib/python3.10/site-packages (from httpx>=0.23.0->fastapi==0.111.0->-r /home/user/install_jhub_oauth_local/usage_monitoring/backend/requirements.txt (line 1)) (1.0.9)
+Requirement already satisfied: rich>=13.7.1 in ./usage_monitoring/.venv/lib/python3.10/site-packages (from rich-toolkit>=0.14.8->fastapi-cli>=0.0.2->fastapi==0.111.0->-r /home/user/install_jhub_oauth_local/usage_monitoring/backend/requirements.txt (line 1)) (14.2.0)
+Requirement already satisfied: markdown-it-py>=2.2.0 in ./usage_monitoring/.venv/lib/python3.10/site-packages (from rich>=13.7.1->rich-toolkit>=0.14.8->fastapi-cli>=0.0.2->fastapi==0.111.0->-r /home/user/install_jhub_oauth_local/usage_monitoring/backend/requirements.txt (line 1)) (4.0.0)
+Requirement already satisfied: pygments<3.0.0,>=2.13.0 in ./usage_monitoring/.venv/lib/python3.10/site-packages (from rich>=13.7.1->rich-toolkit>=0.14.8->fastapi-cli>=0.0.2->fastapi==0.111.0->-r /home/user/install_jhub_oauth_local/usage_monitoring/backend/requirements.txt (line 1)) (2.19.2)
+Requirement already satisfied: mdurl~=0.1 in ./usage_monitoring/.venv/lib/python3.10/site-packages (from markdown-it-py>=2.2.0->rich>=13.7.1->rich-toolkit>=0.14.8->fastapi-cli>=0.0.2->fastapi==0.111.0->-r /home/user/install_jhub_oauth_local/usage_monitoring/backend/requirements.txt (line 1)) (0.1.2)
+Requirement already satisfied: shellingham>=1.3.0 in ./usage_monitoring/.venv/lib/python3.10/site-packages (from typer>=0.15.1->fastapi-cli>=0.0.2->fastapi==0.111.0->-r /home/user/install_jhub_oauth_local/usage_monitoring/backend/requirements.txt (line 1)) (1.5.4)
+[usage-portal] 啟動 FastAPI 服務 (Ctrl+C 可結束)
+/home/user/install_jhub_oauth_local/usage_monitoring/backend/app/main.py:513: DeprecationWarning: 
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+        
+  @app.on_event("startup")
+/home/user/install_jhub_oauth_local/usage_monitoring/backend/app/main.py:521: DeprecationWarning: 
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+        
+  @app.on_event("shutdown")
+INFO:     Started server process [94690]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:29781 (Press CTRL+C to quit)
+INFO:     10.2.240.212:61375 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:61375 - "GET / HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62622 - "GET /billing/summary HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64133 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     10.2.240.212:61375 - "GET /users HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62309 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62309 - "GET /users/tony-test/limits HTTP/1.1" 200 OK
+INFO:     10.2.240.212:51642 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:51642 - "GET /machines HTTP/1.1" 200 OK
+INFO:     10.2.240.212:63726 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:53007 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:63411 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:63421 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:57724 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:49277 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:51211 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:60498 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:50809 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:59928 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:65190 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:55625 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:53386 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:61635 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:53768 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:53074 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:52983 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:49427 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64418 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:52781 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:52781 - "GET /users/tony-test/limits HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64611 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:65126 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.1.243.162:51032 - "GET /users/tony-test/limits HTTP/1.1" 200 OK
+INFO:     10.2.240.212:58127 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.1.243.162:51046 - "GET /users/tony-test/limits HTTP/1.1" 200 OK
+INFO:     10.2.240.212:53657 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:53657 - "PATCH /users/tony.test HTTP/1.1" 200 OK
+INFO:     10.2.240.212:53657 - "GET /users/tony-test/limits HTTP/1.1" 200 OK
+INFO:     10.1.243.162:39328 - "GET /users/tony-test/limits HTTP/1.1" 200 OK
+INFO:     10.2.240.212:51314 - "GET /users HTTP/1.1" 200 OK
+INFO:     10.2.240.212:63129 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     10.2.240.212:53422 - "GET /billing/summary HTTP/1.1" 200 OK
+INFO:     10.2.240.212:61646 - "GET /machines HTTP/1.1" 200 OK
+INFO:     10.2.240.212:59305 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:59305 - "GET /users/tony-test/limits HTTP/1.1" 200 OK
+INFO:     10.2.240.212:59305 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:61596 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:53564 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:57659 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:54075 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:56374 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:55833 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:53678 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:51233 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:54342 - "GET /billing/summary HTTP/1.1" 200 OK
+INFO:     10.2.240.212:61996 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     10.2.240.212:58255 - "GET /users HTTP/1.1" 200 OK
+INFO:     10.2.240.212:55623 - "GET /machines HTTP/1.1" 200 OK
+INFO:     10.2.240.212:59025 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:59025 - "GET /users/tony-test/limits HTTP/1.1" 200 OK
+INFO:     10.2.240.212:59025 - "GET /users/tony-test/limits HTTP/1.1" 200 OK
+INFO:     10.2.240.212:59025 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:50334 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:55623 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:54341 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:50966 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:63409 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:61975 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:58020 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:59590 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:54526 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:51825 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:51046 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:56247 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:52282 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:49427 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:61199 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:58971 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:49864 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:50957 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:57063 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:57247 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62239 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:58416 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:55626 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:60387 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:56604 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:54727 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:61651 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:61432 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:52440 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:53482 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:54705 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64990 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:60766 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:57920 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:58518 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62570 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:59801 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:50452 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:54789 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:54986 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64072 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64371 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62417 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:61417 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:54567 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:49523 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:56570 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:58678 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:61265 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:49824 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:50869 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:56868 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:57165 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:52528 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:58391 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:57165 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:61330 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:51089 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:51873 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:51625 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:63452 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:56652 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62327 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:53349 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:59202 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64893 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64200 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:60946 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:55626 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:52176 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:60511 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:55711 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:60236 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:54111 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64126 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:51162 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:56357 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:63165 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62787 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:55982 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:57238 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:52594 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:60834 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:56004 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:50820 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:61269 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:50231 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62759 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:54194 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:51567 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:53627 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64111 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:59912 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:52936 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:52394 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:50336 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:53122 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:50202 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:60138 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:54156 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:51226 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.1.243.162:45192 - "GET /users/tony-test/limits HTTP/1.1" 200 OK
+INFO:     10.1.243.162:35086 - "GET /users/tony-test/limits HTTP/1.1" 200 OK
+INFO:     10.1.243.162:59418 - "GET /users/tony-test/limits HTTP/1.1" 200 OK
+INFO:     10.1.243.162:59424 - "GET /users/tony-test/limits HTTP/1.1" 200 OK
+INFO:     10.2.240.212:54822 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:54822 - "GET /users HTTP/1.1" 200 OK
+INFO:     10.2.240.212:49195 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     10.2.240.212:55666 - "GET /billing/summary HTTP/1.1" 200 OK
+INFO:     10.2.240.212:50611 - "GET /machines HTTP/1.1" 200 OK
+INFO:     10.2.240.212:53016 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:53016 - "GET /users/tony-test/limits HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64711 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:53772 - "POST /api/pods/jupyter-tony-test---798fcff4--x-1---6b86b273/action HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64711 - "POST /api/pods/jupyter-tony-test---798fcff4/action HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64711 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:63052 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64994 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:50777 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:57917 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:51164 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:61770 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62720 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:54186 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:54541 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64201 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:60864 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:59269 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:54278 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:52769 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:61407 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:54867 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:53588 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:53199 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:61758 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62652 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:52680 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:58465 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:54932 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:53579 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:54381 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:53654 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62341 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:49276 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:51424 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62304 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64990 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:58016 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:51694 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:60230 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62770 - "GET /billing/summary HTTP/1.1" 200 OK
+INFO:     10.2.240.212:55625 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62064 - "GET /users HTTP/1.1" 200 OK
+INFO:     10.2.240.212:52994 - "GET /machines HTTP/1.1" 200 OK
+INFO:     10.2.240.212:49884 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:49884 - "GET /users/tony-test/limits HTTP/1.1" 200 OK
+INFO:     10.2.240.212:49884 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:49884 - "POST /api/pod-report-sync HTTP/1.1" 200 OK
+INFO:     10.2.240.212:49884 - "GET /users HTTP/1.1" 200 OK
+INFO:     10.2.240.212:54465 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     10.2.240.212:57082 - "GET /billing/summary HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62430 - "GET /machines HTTP/1.1" 200 OK
+INFO:     10.2.240.212:53259 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:53259 - "GET /users/tony-test/limits HTTP/1.1" 200 OK
+INFO:     10.2.240.212:65138 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:54220 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:60493 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:55621 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:49382 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:52715 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:56440 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64357 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:49272 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:60466 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:50061 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:49560 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:58781 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62156 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:49674 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:51921 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:52180 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:56881 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:63627 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:53973 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62480 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:50061 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:61591 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62583 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:52949 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:51361 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:53180 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:51703 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:60137 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:50394 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:49821 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:57778 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.1.243.162:47350 - "GET /users/tony-test/limits HTTP/1.1" 200 OK
+INFO:     10.2.240.212:49467 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62268 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:50289 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:55867 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:56797 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64342 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:60243 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:51141 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:63646 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:58754 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:50948 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:60091 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:52293 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:50758 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:50758 - "GET /users HTTP/1.1" 200 OK
+INFO:     10.2.240.212:51927 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     10.2.240.212:56123 - "GET /billing/summary HTTP/1.1" 200 OK
+INFO:     10.2.240.212:54822 - "GET /machines HTTP/1.1" 200 OK
+INFO:     10.2.240.212:58911 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:58911 - "GET /users/tony-test/limits HTTP/1.1" 200 OK
+INFO:     10.2.240.212:58911 - "GET /users/tony-test/limits HTTP/1.1" 200 OK
+INFO:     10.2.240.212:59096 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:54698 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62981 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:63874 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:55974 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:56733 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:51612 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:58959 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:65458 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:52958 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:61215 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:50558 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:51545 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:58036 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:60218 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:55165 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:56327 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:61214 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:54472 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:51902 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:54519 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64454 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:53468 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:53046 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62190 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:55771 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:49940 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:59188 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:60859 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64772 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:55707 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:56476 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:55211 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:56877 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:61405 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:57903 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:63705 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:50343 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:53732 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:50660 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:49746 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:49220 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:56914 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:55969 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:63440 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62213 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:58707 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:56963 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:61116 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:50734 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:63818 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:52843 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:55853 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:56108 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:61984 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64082 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:51905 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:58521 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62050 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:61584 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62358 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62685 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:61656 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64064 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64005 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64233 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:55913 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:60521 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:54616 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:56307 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:53883 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64000 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:61842 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:54310 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:57423 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:56665 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:53534 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:49945 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62968 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:50174 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:61051 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:65140 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:61721 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:59793 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:61684 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:61188 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:61299 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:55143 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64802 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64232 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64232 - "GET / HTTP/1.1" 200 OK
+INFO:     10.2.240.212:57804 - "GET /static/login-logo.png HTTP/1.1" 304 Not Modified
+INFO:     10.2.240.212:64232 - "GET /static/styles.css HTTP/1.1" 304 Not Modified
+INFO:     10.2.240.212:52997 - "GET /static/dashboard.js HTTP/1.1" 304 Not Modified
+INFO:     10.2.240.212:52997 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     10.2.240.212:57804 - "GET /billing/summary HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64232 - "GET /users HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64311 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64311 - "GET /users/tony-test/limits HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64311 - "GET /machines HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64066 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:57573 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:54707 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:49652 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:63411 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:52102 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:57705 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:53371 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:59065 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:63258 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64395 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62049 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:54683 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:59325 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:50929 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:63438 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62231 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:52929 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:55879 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:52387 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:58550 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:58043 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:55622 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:56338 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:49345 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:60571 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:57145 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:53245 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:55631 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:59116 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:57752 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:50374 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:58510 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62096 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:50709 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:52408 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:52212 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:50644 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64098 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:51897 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62959 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:57224 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:50683 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:61035 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:57603 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:65224 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:50494 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:65467 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:51215 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:58637 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.1.243.162:49744 - "GET /users/tony-test/limits HTTP/1.1" 200 OK
+INFO:     10.2.240.212:52215 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64642 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:59746 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:56192 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62418 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:63129 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:55003 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:61872 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:56010 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:59960 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:56483 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:49316 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:50851 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:50096 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64428 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:49902 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:55717 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:61716 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:60619 - "POST /api/pods/jupyter-tony-test---798fcff4--x-1---6b86b273/action HTTP/1.1" 200 OK
+INFO:     10.2.240.212:60619 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:61716 - "GET /billing/summary HTTP/1.1" 200 OK
+INFO:     10.2.240.212:60619 - "GET /users HTTP/1.1" 200 OK
+INFO:     10.2.240.212:58258 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     10.2.240.212:61759 - "GET /machines HTTP/1.1" 200 OK
+INFO:     10.2.240.212:63035 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:63035 - "GET /users/tony-test/limits HTTP/1.1" 200 OK
+INFO:     10.2.240.212:58258 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     10.2.240.212:63035 - "GET /users HTTP/1.1" 200 OK
+INFO:     10.2.240.212:61759 - "GET /billing/summary HTTP/1.1" 200 OK
+INFO:     10.2.240.212:60619 - "GET /machines HTTP/1.1" 200 OK
+INFO:     10.2.240.212:61716 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:61716 - "GET /users/tony-test/limits HTTP/1.1" 200 OK
+INFO:     10.2.240.212:59729 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:53353 - "GET / HTTP/1.1" 200 OK
+INFO:     10.2.240.212:53353 - "GET /static/styles.css HTTP/1.1" 200 OK
+INFO:     10.2.240.212:54508 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     10.2.240.212:53353 - "GET /users HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64016 - "GET /billing/summary HTTP/1.1" 200 OK
+INFO:     10.2.240.212:52495 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:52495 - "GET /users/tony-test/limits HTTP/1.1" 200 OK
+INFO:     10.2.240.212:52983 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:52246 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:49317 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:50142 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62951 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62816 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:59902 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:56139 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:56834 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:57808 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62095 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:51094 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:52083 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:57184 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:59391 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62720 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62800 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62545 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:57614 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64580 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:55622 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:58844 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:61597 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64900 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:59791 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:57142 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:55622 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:51869 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:63455 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:53557 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:55622 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:57401 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:58773 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:63720 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:50548 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:58222 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62748 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:54321 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64637 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:60435 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:65100 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:54678 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:50951 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62449 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:53209 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:52550 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:60392 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:57367 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:55121 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:51835 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:52843 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:53421 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:58860 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:58610 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62299 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64735 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:65533 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:52871 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:54381 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:60248 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:54082 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:51016 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:51524 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:52304 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:57858 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:57394 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64228 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:51717 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:49396 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62947 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:53913 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:54484 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:55623 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:63838 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62089 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:49509 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:65520 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:65213 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:56819 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:54008 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:57267 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:56159 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:54654 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:65500 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:61240 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:51940 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:55621 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:57290 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62118 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:58948 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:59826 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:58770 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:50618 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:51164 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:54353 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:61500 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:58393 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:56455 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:60679 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:49813 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:49339 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:55924 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:60585 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:58966 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:61805 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:55925 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:60993 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:58674 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:60127 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:52334 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:54082 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62199 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:52827 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64738 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64700 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62217 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62217 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:55629 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64179 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:49591 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:56008 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:56749 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:56749 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:54141 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:51141 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:55623 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:58349 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:52353 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:49944 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:58053 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:61839 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:57992 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:55834 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:58482 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:65481 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:51204 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:58897 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:50434 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:61157 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:56152 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:63693 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62748 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:60904 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:59447 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:63830 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64325 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64116 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:57847 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62908 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:55215 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:52557 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:60091 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:52218 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:56138 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:52006 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:61871 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64446 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62064 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:55121 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:59947 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:52041 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:58598 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:54238 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:52042 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:52700 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62010 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:49296 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:52926 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:54211 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64969 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:52068 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:52253 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:61360 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62424 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:49743 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:50332 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:59361 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:61125 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:53999 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:61148 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:60568 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:51669 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:61870 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:51201 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:59225 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:50060 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:57930 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:57930 - "GET / HTTP/1.1" 200 OK
+INFO:     10.2.240.212:57930 - "GET /static/login-logo.png HTTP/1.1" 304 Not Modified
+INFO:     10.2.240.212:63587 - "GET /static/dashboard.js HTTP/1.1" 304 Not Modified
+INFO:     10.2.240.212:59717 - "POST /iam/command HTTP/1.1" 200 OK
+INFO:     10.2.240.212:59717 - "GET /users HTTP/1.1" 200 OK
+INFO:     10.2.240.212:52602 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     10.2.240.212:50915 - "GET /billing/summary HTTP/1.1" 200 OK
+INFO:     10.2.240.212:54918 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:54918 - "GET /users/tony-test/limits HTTP/1.1" 200 OK
+INFO:     10.2.240.212:56247 - "GET /machines HTTP/1.1" 200 OK
+INFO:     10.2.240.212:61991 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:54118 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:49774 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:52945 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:61692 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:53851 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:55622 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62570 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:59349 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:60690 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:61888 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:60361 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:52692 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64426 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:63386 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62652 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:50480 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:65098 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:49389 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:56979 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:58322 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:60756 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:65237 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:57520 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64453 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:52859 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64112 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:59052 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62031 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:54021 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64950 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:57603 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:54851 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:60115 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:59770 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62577 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64853 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:63938 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62581 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:59299 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:60058 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:54915 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:56447 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:49404 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:53308 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.1.243.162:51178 - "GET /users/tony-test/limits HTTP/1.1" 200 OK
+INFO:     10.2.240.212:63467 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:61246 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:52880 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:52553 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:57617 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:57580 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:52884 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:58119 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:54708 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:49408 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:57037 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:58017 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:61572 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:60064 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:57643 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:59014 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:53166 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:51276 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:54748 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:50153 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:51844 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:50895 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:50253 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:56493 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:60198 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64199 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:53170 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:60481 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:54319 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:50950 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:61802 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:53909 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:51701 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:58036 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64840 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:56998 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:59542 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:53412 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:55010 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:50523 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:65436 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:52945 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:56452 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:63735 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:63683 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:65077 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:50195 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:51051 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64881 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:51191 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:49840 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:53325 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:50538 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:55121 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:55622 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:49186 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:52147 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:60433 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64223 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:52529 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:63386 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:52622 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:52622 - "GET /users HTTP/1.1" 200 OK
+INFO:     10.2.240.212:57905 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64456 - "GET /billing/summary HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64084 - "GET /machines HTTP/1.1" 200 OK
+INFO:     10.2.240.212:63951 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:63951 - "GET /users/tony-test/limits HTTP/1.1" 200 OK
+INFO:     10.2.240.212:63951 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.1.243.166:36906 - "GET /users/tony-test/limits HTTP/1.1" 200 OK
+INFO:     10.1.243.166:53792 - "GET /users/tony-test/limits HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64352 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62124 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64876 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:63942 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:58728 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:54241 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:65045 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:50152 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:57164 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:63196 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:54926 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:56598 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64706 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:61399 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:60364 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:65343 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:52367 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:50176 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:52599 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:60198 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:55948 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:54998 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:65270 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:65159 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:61503 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:51994 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:55621 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:51841 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:54647 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:57222 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:61279 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:55764 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62617 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:52594 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:55899 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:51723 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:61594 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:52062 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:60852 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:57635 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:58434 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:49753 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:54626 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62840 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.1.243.166:49628 - "GET /users/tony-test/limits HTTP/1.1" 200 OK
+INFO:     10.1.243.166:59266 - "GET /users/tony-test/limits HTTP/1.1" 200 OK
+INFO:     10.1.243.166:59282 - "GET /users/tony-test/limits HTTP/1.1" 200 OK
+INFO:     10.1.243.166:36842 - "GET /users/tony-test/limits HTTP/1.1" 200 OK
+INFO:     10.2.240.212:57276 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:52391 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64224 - "GET /users HTTP/1.1" 200 OK
+INFO:     10.2.240.212:63399 - "GET /billing/summary HTTP/1.1" 200 OK
+INFO:     10.2.240.212:61273 - "GET /machines HTTP/1.1" 200 OK
+INFO:     10.2.240.212:56357 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:56357 - "GET /users/tony-test/limits HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64358 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:57600 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:63387 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:51970 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:51675 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:54950 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:58280 - "POST /api/pods/jupyter-tony-test---798fcff4--x-2---d4735e3a/action HTTP/1.1" 200 OK
+INFO:     10.2.240.212:57295 - "POST /api/pods/jupyter-tony-test---798fcff4--x-3---4e074085/action HTTP/1.1" 200 OK
+INFO:     10.2.240.212:54950 - "POST /api/pods/jupyter-tony-test---798fcff4--x-1---6b86b273/action HTTP/1.1" 200 OK
+INFO:     10.2.240.212:57295 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:63105 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:63105 - "GET /users HTTP/1.1" 200 OK
+INFO:     10.2.240.212:52135 - "GET /billing/summary HTTP/1.1" 200 OK
+INFO:     10.2.240.212:51904 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     10.2.240.212:61306 - "GET /machines HTTP/1.1" 200 OK
+INFO:     10.2.240.212:63784 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:63784 - "GET /users/tony-test/limits HTTP/1.1" 200 OK
+INFO:     10.2.240.212:56308 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:59429 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:55627 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:56231 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:50285 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:56157 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:61258 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:58020 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:59922 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:61966 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:59386 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:55622 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:49298 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:63096 - "POST /api/pod-report-sync HTTP/1.1" 200 OK
+INFO:     10.2.240.212:63096 - "GET /users HTTP/1.1" 200 OK
+INFO:     10.2.240.212:50495 - "GET /billing/summary HTTP/1.1" 200 OK
+INFO:     10.2.240.212:56374 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     10.2.240.212:49397 - "GET /machines HTTP/1.1" 200 OK
+INFO:     10.2.240.212:57320 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:57320 - "GET /users/tony-test/limits HTTP/1.1" 200 OK
+INFO:     10.2.240.212:57320 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:50060 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:51029 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62980 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64968 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:61876 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:63558 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:50172 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:53979 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:65258 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:63851 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62981 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:59339 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:57490 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:61190 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:55621 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:51793 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.1.243.166:40902 - "GET /users/tony-test/limits HTTP/1.1" 200 OK
+INFO:     10.2.240.212:50239 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:60779 - "GET /billing/summary HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62038 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     10.2.240.212:57538 - "GET /users HTTP/1.1" 200 OK
+INFO:     10.2.240.212:56289 - "GET /machines HTTP/1.1" 200 OK
+INFO:     10.2.240.212:61605 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:61605 - "GET /users/tony-test/limits HTTP/1.1" 200 OK
+INFO:     10.2.240.212:55621 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:51710 - "PATCH /users/tony.test HTTP/1.1" 200 OK
+INFO:     10.2.240.212:51710 - "GET /users/tony-test/limits HTTP/1.1" 200 OK
+INFO:     10.1.243.166:47262 - "GET /users/tony-test/limits HTTP/1.1" 200 OK
+INFO:     10.2.240.212:60161 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.1.243.166:44934 - "GET /users/tony-test/limits HTTP/1.1" 200 OK
+INFO:     10.1.243.166:48648 - "GET /users/tony-test/limits HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62018 - "GET / HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62018 - "GET /static/login-logo.png HTTP/1.1" 304 Not Modified
+INFO:     10.2.240.212:50097 - "GET /static/dashboard.js HTTP/1.1" 304 Not Modified
+INFO:     10.2.240.212:57551 - "GET /static/styles.css HTTP/1.1" 304 Not Modified
+INFO:     10.2.240.212:62018 - "GET /billing/summary HTTP/1.1" 200 OK
+INFO:     10.2.240.212:57551 - "GET /users HTTP/1.1" 200 OK
+INFO:     10.2.240.212:50097 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     10.2.240.212:54785 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:54785 - "GET /users/tony-test/limits HTTP/1.1" 200 OK
+INFO:     10.2.240.212:55121 - "GET /machines HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62062 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62062 - "GET /users HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62708 - "GET /billing/summary HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62988 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     10.2.240.212:56606 - "GET /machines HTTP/1.1" 200 OK
+INFO:     10.2.240.212:49210 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:49210 - "GET /users/tony-test/limits HTTP/1.1" 200 OK
+INFO:     10.2.240.212:49210 - "GET /users HTTP/1.1" 200 OK
+INFO:     10.2.240.212:56606 - "GET /billing/summary HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62988 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62062 - "GET /machines HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62708 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62708 - "GET /users/tony-test/limits HTTP/1.1" 200 OK
+INFO:     10.2.240.212:58399 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:52621 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:61323 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:52187 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:57854 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:59572 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:59690 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     10.2.240.212:59572 - "GET /users HTTP/1.1" 200 OK
+INFO:     10.2.240.212:61540 - "GET /billing/summary HTTP/1.1" 200 OK
+INFO:     10.2.240.212:50978 - "GET /machines HTTP/1.1" 200 OK
+INFO:     10.2.240.212:61288 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:61288 - "GET /users/tony-test/limits HTTP/1.1" 200 OK
+INFO:     10.2.240.212:65397 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:53794 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:57763 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:55664 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:53310 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:63235 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:65515 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:53518 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:54551 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:49572 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62721 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:53935 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:61480 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:65128 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:50786 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:51774 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:51774 - "POST /api/pods/jupyter-tony-test---798fcff4--x-1---6b86b273/action HTTP/1.1" 200 OK
+INFO:     10.2.240.212:65238 - "POST /api/pods/jupyter-tony-test---798fcff4--x-2---d4735e3a/action HTTP/1.1" 200 OK
+INFO:     10.2.240.212:65238 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:65238 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:50061 - "GET / HTTP/1.1" 200 OK
+INFO:     10.2.240.212:52413 - "GET /billing/summary HTTP/1.1" 200 OK
+INFO:     10.2.240.212:53660 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     10.2.240.212:50061 - "GET /users HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64568 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64568 - "GET /users/tony-test/limits HTTP/1.1" 200 OK
+INFO:     10.2.240.212:60252 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64035 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:63387 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:52140 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:53792 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:58235 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:53876 - "GET /api/usage HTTP/1.1" 200 OK
+[usage-auto] sync failed: microk8s is not running, try microk8s start
+INFO:     10.2.240.212:61445 - "GET /api/usage HTTP/1.1" 500 Internal Server Error
+[usage-auto] sync failed: [Errno 2] No such file or directory: 'microk8s'
+[usage-auto] sync failed: [Errno 2] No such file or directory: 'microk8s'
+INFO:     10.2.240.212:50458 - "GET /api/usage HTTP/1.1" 500 Internal Server Error
+ERROR:    Exception in ASGI application
+Traceback (most recent call last):
+  File "/home/user/install_jhub_oauth_local/usage_monitoring/.venv/lib/python3.10/site-packages/uvicorn/protocols/http/httptools_impl.py", line 411, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+  File "/home/user/install_jhub_oauth_local/usage_monitoring/.venv/lib/python3.10/site-packages/uvicorn/middleware/proxy_headers.py", line 69, in __call__
+    return await self.app(scope, receive, send)
+  File "/home/user/install_jhub_oauth_local/usage_monitoring/.venv/lib/python3.10/site-packages/fastapi/applications.py", line 1054, in __call__
+    await super().__call__(scope, receive, send)
+  File "/home/user/install_jhub_oauth_local/usage_monitoring/.venv/lib/python3.10/site-packages/starlette/applications.py", line 123, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/home/user/install_jhub_oauth_local/usage_monitoring/.venv/lib/python3.10/site-packages/starlette/middleware/errors.py", line 186, in __call__
+    raise exc
+  File "/home/user/install_jhub_oauth_local/usage_monitoring/.venv/lib/python3.10/site-packages/starlette/middleware/errors.py", line 164, in __call__
+    await self.app(scope, receive, _send)
+  File "/home/user/install_jhub_oauth_local/usage_monitoring/.venv/lib/python3.10/site-packages/starlette/middleware/cors.py", line 85, in __call__
+    await self.app(scope, receive, send)
+  File "/home/user/install_jhub_oauth_local/usage_monitoring/.venv/lib/python3.10/site-packages/starlette/middleware/exceptions.py", line 65, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "/home/user/install_jhub_oauth_local/usage_monitoring/.venv/lib/python3.10/site-packages/starlette/_exception_handler.py", line 64, in wrapped_app
+    raise exc
+  File "/home/user/install_jhub_oauth_local/usage_monitoring/.venv/lib/python3.10/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    await app(scope, receive, sender)
+  File "/home/user/install_jhub_oauth_local/usage_monitoring/.venv/lib/python3.10/site-packages/starlette/routing.py", line 756, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/home/user/install_jhub_oauth_local/usage_monitoring/.venv/lib/python3.10/site-packages/starlette/routing.py", line 776, in app
+    await route.handle(scope, receive, send)
+  File "/home/user/install_jhub_oauth_local/usage_monitoring/.venv/lib/python3.10/site-packages/starlette/routing.py", line 297, in handle
+    await self.app(scope, receive, send)
+  File "/home/user/install_jhub_oauth_local/usage_monitoring/.venv/lib/python3.10/site-packages/starlette/routing.py", line 77, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "/home/user/install_jhub_oauth_local/usage_monitoring/.venv/lib/python3.10/site-packages/starlette/_exception_handler.py", line 64, in wrapped_app
+    raise exc
+  File "/home/user/install_jhub_oauth_local/usage_monitoring/.venv/lib/python3.10/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    await app(scope, receive, sender)
+  File "/home/user/install_jhub_oauth_local/usage_monitoring/.venv/lib/python3.10/site-packages/starlette/routing.py", line 72, in app
+    response = await func(request)
+  File "/home/user/install_jhub_oauth_local/usage_monitoring/.venv/lib/python3.10/site-packages/fastapi/routing.py", line 278, in app
+    raw_response = await run_endpoint_function(
+  File "/home/user/install_jhub_oauth_local/usage_monitoring/.venv/lib/python3.10/site-packages/fastapi/routing.py", line 193, in run_endpoint_function
+    return await run_in_threadpool(dependant.call, **values)
+  File "/home/user/install_jhub_oauth_local/usage_monitoring/.venv/lib/python3.10/site-packages/starlette/concurrency.py", line 42, in run_in_threadpool
+    return await anyio.to_thread.run_sync(func, *args)
+  File "/home/user/install_jhub_oauth_local/usage_monitoring/.venv/lib/python3.10/site-packages/anyio/to_thread.py", line 61, in run_sync
+    return await get_async_backend().run_sync_in_worker_thread(
+  File "/home/user/install_jhub_oauth_local/usage_monitoring/.venv/lib/python3.10/site-packages/anyio/_backends/_asyncio.py", line 2525, in run_sync_in_worker_thread
+    return await future
+  File "/home/user/install_jhub_oauth_local/usage_monitoring/.venv/lib/python3.10/site-packages/anyio/_backends/_asyncio.py", line 986, in run
+    result = context.run(func, *args)
+  File "/home/user/install_jhub_oauth_local/usage_monitoring/backend/app/main.py", line 476, in jhub_usage
+    return jhub.collect_usage_payload()
+  File "/home/user/install_jhub_oauth_local/usage_monitoring/backend/app/jhub.py", line 190, in collect_usage_payload
+    raw = run_kubectl(args)
+  File "/home/user/install_jhub_oauth_local/usage_monitoring/backend/app/jhub.py", line 47, in run_kubectl
+    return _run_command(cmd)
+  File "/home/user/install_jhub_oauth_local/usage_monitoring/backend/app/jhub.py", line 35, in _run_command
+    proc = subprocess.Popen(
+  File "/usr/lib/python3.10/subprocess.py", line 971, in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+  File "/usr/lib/python3.10/subprocess.py", line 1863, in _execute_child
+    raise child_exception_type(errno_num, err_msg, err_filename)
+FileNotFoundError: [Errno 2] No such file or directory: 'microk8s'
+[usage-auto] sync failed: [Errno 2] No such file or directory: 'microk8s'
+[usage-auto] sync failed: [Errno 2] No such file or directory: 'microk8s'
+INFO:     10.2.240.212:63400 - "GET /api/usage HTTP/1.1" 500 Internal Server Error
+ERROR:    Exception in ASGI application
+Traceback (most recent call last):
+  File "/home/user/install_jhub_oauth_local/usage_monitoring/.venv/lib/python3.10/site-packages/uvicorn/protocols/http/httptools_impl.py", line 411, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+  File "/home/user/install_jhub_oauth_local/usage_monitoring/.venv/lib/python3.10/site-packages/uvicorn/middleware/proxy_headers.py", line 69, in __call__
+    return await self.app(scope, receive, send)
+  File "/home/user/install_jhub_oauth_local/usage_monitoring/.venv/lib/python3.10/site-packages/fastapi/applications.py", line 1054, in __call__
+    await super().__call__(scope, receive, send)
+  File "/home/user/install_jhub_oauth_local/usage_monitoring/.venv/lib/python3.10/site-packages/starlette/applications.py", line 123, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/home/user/install_jhub_oauth_local/usage_monitoring/.venv/lib/python3.10/site-packages/starlette/middleware/errors.py", line 186, in __call__
+    raise exc
+  File "/home/user/install_jhub_oauth_local/usage_monitoring/.venv/lib/python3.10/site-packages/starlette/middleware/errors.py", line 164, in __call__
+    await self.app(scope, receive, _send)
+  File "/home/user/install_jhub_oauth_local/usage_monitoring/.venv/lib/python3.10/site-packages/starlette/middleware/cors.py", line 85, in __call__
+    await self.app(scope, receive, send)
+  File "/home/user/install_jhub_oauth_local/usage_monitoring/.venv/lib/python3.10/site-packages/starlette/middleware/exceptions.py", line 65, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "/home/user/install_jhub_oauth_local/usage_monitoring/.venv/lib/python3.10/site-packages/starlette/_exception_handler.py", line 64, in wrapped_app
+    raise exc
+  File "/home/user/install_jhub_oauth_local/usage_monitoring/.venv/lib/python3.10/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    await app(scope, receive, sender)
+  File "/home/user/install_jhub_oauth_local/usage_monitoring/.venv/lib/python3.10/site-packages/starlette/routing.py", line 756, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/home/user/install_jhub_oauth_local/usage_monitoring/.venv/lib/python3.10/site-packages/starlette/routing.py", line 776, in app
+    await route.handle(scope, receive, send)
+  File "/home/user/install_jhub_oauth_local/usage_monitoring/.venv/lib/python3.10/site-packages/starlette/routing.py", line 297, in handle
+    await self.app(scope, receive, send)
+  File "/home/user/install_jhub_oauth_local/usage_monitoring/.venv/lib/python3.10/site-packages/starlette/routing.py", line 77, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "/home/user/install_jhub_oauth_local/usage_monitoring/.venv/lib/python3.10/site-packages/starlette/_exception_handler.py", line 64, in wrapped_app
+    raise exc
+  File "/home/user/install_jhub_oauth_local/usage_monitoring/.venv/lib/python3.10/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    await app(scope, receive, sender)
+  File "/home/user/install_jhub_oauth_local/usage_monitoring/.venv/lib/python3.10/site-packages/starlette/routing.py", line 72, in app
+    response = await func(request)
+  File "/home/user/install_jhub_oauth_local/usage_monitoring/.venv/lib/python3.10/site-packages/fastapi/routing.py", line 278, in app
+    raw_response = await run_endpoint_function(
+  File "/home/user/install_jhub_oauth_local/usage_monitoring/.venv/lib/python3.10/site-packages/fastapi/routing.py", line 193, in run_endpoint_function
+    return await run_in_threadpool(dependant.call, **values)
+  File "/home/user/install_jhub_oauth_local/usage_monitoring/.venv/lib/python3.10/site-packages/starlette/concurrency.py", line 42, in run_in_threadpool
+    return await anyio.to_thread.run_sync(func, *args)
+  File "/home/user/install_jhub_oauth_local/usage_monitoring/.venv/lib/python3.10/site-packages/anyio/to_thread.py", line 61, in run_sync
+    return await get_async_backend().run_sync_in_worker_thread(
+  File "/home/user/install_jhub_oauth_local/usage_monitoring/.venv/lib/python3.10/site-packages/anyio/_backends/_asyncio.py", line 2525, in run_sync_in_worker_thread
+    return await future
+  File "/home/user/install_jhub_oauth_local/usage_monitoring/.venv/lib/python3.10/site-packages/anyio/_backends/_asyncio.py", line 986, in run
+    result = context.run(func, *args)
+  File "/home/user/install_jhub_oauth_local/usage_monitoring/backend/app/main.py", line 476, in jhub_usage
+    return jhub.collect_usage_payload()
+  File "/home/user/install_jhub_oauth_local/usage_monitoring/backend/app/jhub.py", line 190, in collect_usage_payload
+    raw = run_kubectl(args)
+  File "/home/user/install_jhub_oauth_local/usage_monitoring/backend/app/jhub.py", line 47, in run_kubectl
+    return _run_command(cmd)
+  File "/home/user/install_jhub_oauth_local/usage_monitoring/backend/app/jhub.py", line 35, in _run_command
+    proc = subprocess.Popen(
+  File "/usr/lib/python3.10/subprocess.py", line 971, in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+  File "/usr/lib/python3.10/subprocess.py", line 1863, in _execute_child
+    raise child_exception_type(errno_num, err_msg, err_filename)
+FileNotFoundError: [Errno 2] No such file or directory: 'microk8s'
+[usage-auto] sync failed: The connection to the server 127.0.0.1:16443 was refused - did you specify the right host or port?
+INFO:     10.2.240.212:64494 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:56449 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:60723 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62969 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62761 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64616 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64938 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:54184 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:63099 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:53382 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:51741 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:58037 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:55778 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:49393 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:65449 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:56508 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:60741 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:59000 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62925 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:50537 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:54154 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:58176 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:52262 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:53767 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:51233 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64618 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62851 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64778 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:57348 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:60072 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:49468 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:54204 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:52493 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:50078 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:51787 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:63193 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:58266 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:50300 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64260 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:53516 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:52811 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62746 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:53760 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:53760 - "GET / HTTP/1.1" 200 OK
+INFO:     10.2.240.212:53760 - "GET /users HTTP/1.1" 200 OK
+INFO:     10.2.240.212:60499 - "GET /billing/summary HTTP/1.1" 200 OK
+INFO:     10.2.240.212:50887 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     10.2.240.212:49217 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:49217 - "GET /users/tony-test/limits HTTP/1.1" 200 OK
+INFO:     10.2.240.212:49217 - "GET /machines HTTP/1.1" 200 OK
+INFO:     10.2.240.212:59335 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.1.243.154:56158 - "GET /users/tony-test/limits HTTP/1.1" 200 OK
+INFO:     10.2.240.212:49840 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:57367 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.1.243.154:57368 - "GET /users/tony-test/limits HTTP/1.1" 200 OK
+INFO:     10.2.240.212:60844 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:55177 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:53945 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:55624 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:55622 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62345 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:52053 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:50062 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:57378 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:55904 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.1.243.154:35044 - "GET /users/tony-test/limits HTTP/1.1" 200 OK
+INFO:     10.2.240.212:59805 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:57163 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:53709 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:56516 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:59010 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:50606 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:54014 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:55621 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:61353 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:59677 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:54196 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:56525 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:51768 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.1.243.154:48012 - "GET /users/tony-test/limits HTTP/1.1" 200 OK
+INFO:     10.1.243.154:57048 - "GET /users/tony-test/limits HTTP/1.1" 200 OK
+INFO:     10.2.240.212:55622 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:52657 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:58300 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:65468 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:65476 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:50136 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:50853 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:55827 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:56782 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:50061 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:60703 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:63771 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:59973 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.1.243.154:58724 - "GET /users/tony-test/limits HTTP/1.1" 200 OK
+INFO:     10.1.243.154:34666 - "GET /users/tony-test/limits HTTP/1.1" 200 OK
+INFO:     10.2.240.212:59472 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:56501 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:56083 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:49727 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:58076 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:54231 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:59560 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64035 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:63386 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:60804 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:58969 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:57376 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:49917 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:60268 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.1.243.154:42222 - "GET /users/tony-test/limits HTTP/1.1" 200 OK
+INFO:     10.2.240.212:53209 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.1.243.154:37836 - "GET /users/tony-test/limits HTTP/1.1" 200 OK
+INFO:     10.2.240.212:51970 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:59625 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:54841 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:51370 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62882 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:58544 - "GET /users HTTP/1.1" 200 OK
+INFO:     10.2.240.212:51061 - "GET /billing/summary HTTP/1.1" 200 OK
+INFO:     10.2.240.212:60715 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     10.2.240.212:60619 - "GET /machines HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64796 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:60619 - "GET /users/tony-test/limits HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64796 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:65352 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64164 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:52597 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:56325 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:58262 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:65060 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:51997 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:59799 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:50960 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:61019 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:65399 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:52705 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:59103 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:59103 - "GET / HTTP/1.1" 200 OK
+INFO:     10.2.240.212:53636 - "GET /billing/summary HTTP/1.1" 200 OK
+INFO:     10.2.240.212:59103 - "GET /users HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64786 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     10.2.240.212:56945 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:56945 - "GET /users/tony-test/limits HTTP/1.1" 200 OK
+INFO:     10.2.240.212:56945 - "GET /machines HTTP/1.1" 200 OK
+INFO:     10.1.243.154:39116 - "GET /users/tony-test/limits HTTP/1.1" 200 OK
+INFO:     10.2.240.212:51940 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:59616 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:55882 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:60472 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:61563 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:51020 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:54187 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:54187 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62244 - "GET /users HTTP/1.1" 200 OK
+INFO:     10.2.240.212:58459 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     10.2.240.212:59757 - "GET /billing/summary HTTP/1.1" 200 OK
+INFO:     10.2.240.212:60800 - "GET /machines HTTP/1.1" 200 OK
+INFO:     10.2.240.212:56132 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:56132 - "GET /users/tony-test/limits HTTP/1.1" 200 OK
+INFO:     10.2.240.212:65209 - "POST /api/pods/jupyter-tony-test---798fcff4--x-1---6b86b273/action HTTP/1.1" 200 OK
+INFO:     10.2.240.212:60550 - "POST /api/pods/jupyter-tony-test---798fcff4--x-2---d4735e3a/action HTTP/1.1" 200 OK
+INFO:     10.2.240.212:52695 - "POST /api/pods/jupyter-tony-test---798fcff4--x-4---4b227777/action HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62929 - "POST /api/pods/jupyter-tony-test---798fcff4--x-3---4e074085/action HTTP/1.1" 200 OK
+INFO:     10.2.240.212:52695 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:52695 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:52695 - "GET /users HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62929 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     10.2.240.212:60550 - "GET /billing/summary HTTP/1.1" 200 OK
+INFO:     10.2.240.212:53406 - "GET /machines HTTP/1.1" 200 OK
+INFO:     10.2.240.212:65209 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:65209 - "GET /users/tony-test/limits HTTP/1.1" 200 OK
+INFO:     10.2.240.212:59969 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     10.2.240.212:53404 - "GET /users HTTP/1.1" 200 OK
+INFO:     10.2.240.212:51094 - "GET /billing/summary HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64061 - "GET /machines HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64975 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64975 - "GET /users/tony-test/limits HTTP/1.1" 200 OK
+INFO:     10.2.240.212:53214 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:58497 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:57157 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:51272 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:53473 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:52103 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:59737 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:61614 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:51755 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:65484 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:59383 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:53712 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:53353 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:56739 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:56739 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.1.243.154:48324 - "GET /users/tony-test/limits HTTP/1.1" 200 OK
+INFO:     10.1.243.154:41162 - "GET /users/tony-test/limits HTTP/1.1" 200 OK
+INFO:     10.2.240.212:59164 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:50681 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:55624 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:61181 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:49330 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:56584 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:60295 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:61529 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.1.243.154:39790 - "GET /users/joey-test/limits HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62706 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:55149 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:51923 - "GET /billing/summary HTTP/1.1" 200 OK
+INFO:     10.2.240.212:49706 - "GET /users HTTP/1.1" 200 OK
+INFO:     10.2.240.212:57133 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     10.2.240.212:52754 - "GET /machines HTTP/1.1" 200 OK
+INFO:     10.2.240.212:63485 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:63485 - "GET /users/tony-test/limits HTTP/1.1" 200 OK
+INFO:     10.2.240.212:63485 - "GET /users/joey-test/limits HTTP/1.1" 200 OK
+INFO:     10.2.240.212:63485 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:56156 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:49528 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:57154 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:57154 - "POST /api/pods/jupyter-joey-test---22b1eeec/action HTTP/1.1" 200 OK
+INFO:     10.2.240.212:57154 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:57154 - "GET /users HTTP/1.1" 200 OK
+INFO:     10.2.240.212:63960 - "GET /billing/summary HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62806 - "GET /sessions HTTP/1.1" 200 OK
+INFO:     10.2.240.212:53715 - "GET /machines HTTP/1.1" 200 OK
+INFO:     10.2.240.212:63178 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:63178 - "GET /users/joey-test/limits HTTP/1.1" 200 OK
+INFO:     10.2.240.212:63178 - "GET /users/tony-test/limits HTTP/1.1" 200 OK
+INFO:     10.2.240.212:53715 - "GET /users/joey-test/limits HTTP/1.1" 200 OK
+INFO:     10.2.240.212:63178 - "GET /users/tony-test/limits HTTP/1.1" 200 OK
+INFO:     10.2.240.212:53715 - "GET /users/joey-test/limits HTTP/1.1" 200 OK
+INFO:     10.2.240.212:54408 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:65195 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:57361 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:49932 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:60332 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62900 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:63526 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.1.243.154:41614 - "GET /users/tony-test/limits HTTP/1.1" 200 OK
+INFO:     10.2.240.212:56459 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:63154 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62938 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64041 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:55932 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:60583 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:60583 - "GET /users/tony-test/limits HTTP/1.1" 200 OK
+INFO:     10.2.240.212:60583 - "GET /users/joey-test/limits HTTP/1.1" 200 OK
+INFO:     10.2.240.212:60583 - "GET /users/tony-test/limits HTTP/1.1" 200 OK
+INFO:     10.2.240.212:57961 - "GET /users/joey-test/limits HTTP/1.1" 200 OK
+INFO:     10.2.240.212:50814 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62730 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:63505 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:56680 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62958 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:55797 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:61963 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:61592 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:54423 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:56139 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64959 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:51764 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:58450 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:52061 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62792 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:53123 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:55121 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:49318 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:65382 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:64750 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:61192 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:53838 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:53351 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:62073 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:55621 - "GET /api/usage HTTP/1.1" 200 OK
+INFO:     10.2.240.212:58067 - "GET /api/usage HTTP/1.1" 200 OK

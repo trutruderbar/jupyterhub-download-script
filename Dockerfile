@@ -27,7 +27,7 @@ RUN ln -fs /usr/share/zoneinfo/Etc/UTC /etc/localtime \
   && apt-get install -y --no-install-recommends \
       git curl wget ca-certificates tzdata unzip xz-utils \
       build-essential pkg-config cmake \
-      pciutils rdma-core ibverbs-providers tini \
+      pciutils iproute2 rdma-core ibverbs-providers ibverbs-utils perftest infiniband-diags tini \
       sudo tmux htop less vim nano locales \
       # GUI / Remote Desktop 依賴
       xfce4 xfce4-terminal tigervnc-standalone-server novnc websockify \
@@ -85,7 +85,7 @@ RUN set -eux; \
     mkdir -p /etc/sudoers.d; \
     echo "${NB_USER} ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/${NB_USER}; \
     chmod 0440 /etc/sudoers.d/${NB_USER}; \
-    mkdir -p /workspace /workspace/Storage; \
+    mkdir -p /workspace /workspace/storage; \
     chown -R ${NB_UID}:${NB_GID} /workspace; \
     chmod -R g+rwX /workspace
 
@@ -229,6 +229,32 @@ RUN chmod +x /usr/local/bin/fix_cpu_mode.py
 RUN cat <<'EOF' >/usr/local/bin/start-singleuser.sh
 #!/bin/bash
 set -euo pipefail
+
+is_path_mounted() {
+  local path="$1"
+  if command -v mountpoint >/dev/null 2>&1; then
+    mountpoint -q "$path" >/dev/null 2>&1 && return 0
+    return 1
+  fi
+  grep -qs " $path " /proc/self/mountinfo && return 0
+  return 1
+}
+
+dir_has_content() {
+  local dir="$1"
+  [[ -d "$dir" ]] || return 1
+  local contents
+  contents="$(ls -A "$dir" 2>/dev/null || true)"
+  [[ -n "$contents" ]]
+}
+
+setup_workspace_links() {
+  local mount_path="/workspace/storage"
+  mkdir -p "${mount_path}"
+  echo "[startup] Storage mount path: ${mount_path}"
+}
+
+setup_workspace_links
 
 echo "[startup] Detecting GPU availability和調整 CUDA 環境..."
 
