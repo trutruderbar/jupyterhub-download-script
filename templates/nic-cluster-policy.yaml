@@ -1,0 +1,11 @@
+apiVersion: mellanox.com/v1alpha1
+kind: NicClusterPolicy
+metadata:
+  name: ${IB_NIC_POLICY_NAME}
+spec:
+  rdmaSharedDevicePlugin:
+    repository: ${IB_RSDP_REPOSITORY}
+    image: ${IB_RSDP_IMAGE}
+    version: ${IB_RSDP_VERSION}
+    config: |
+      ${IB_RSDP_CONFIG}
