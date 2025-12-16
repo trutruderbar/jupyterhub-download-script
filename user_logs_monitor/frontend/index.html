@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>User Logs Monitor</title>
+  <style>
+    :root{
+      --bg:#f8fafc; --panel:#ffffff; --accent:#2563eb; --accent-2:#7c3aed;
+      --text:#0f172a; --muted:#64748b; --border:#e5e7eb; --ring:rgba(37,99,235,.16);
+      --ok:#10b981; --danger:#ef4444;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0; background:radial-gradient(900px 460px at 12% -10%, rgba(37,99,235,.08), transparent 60%),
+               radial-gradient(800px 420px at 110% 10%, rgba(124,58,237,.08), transparent 60%),
+               var(--bg);
+      color:var(--text);
+      font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Noto Sans,Ubuntu,Cantarell,Helvetica,Arial;
+      min-height:100dvh;
+    }
+    body.lm-dark{
+      background:radial-gradient(900px 460px at 12% -10%, rgba(59,130,246,.14), transparent 60%),
+                 radial-gradient(800px 420px at 110% 10%, rgba(124,58,237,.18), transparent 60%),
+                 #0f172a;
+      --bg:#0b1220;
+      --panel:#0f172a;
+      --accent:#60a5fa;
+      --accent-2:#7c3aed;
+      --text:#e5e7eb;
+      --muted:#cbd5e1;
+      --border:#1f2937;
+      --ring:rgba(96,165,250,.18);
+      --ok:#34d399;
+      --danger:#f87171;
+    }
+    body.embed{background:var(--bg); min-height:auto;}
+    body.embed header{display:none;}
+    body.embed .container{padding:10px 12px; margin-top:0;}
+    header{
+      position:sticky; top:0; z-index:10;
+      display:flex; align-items:center; justify-content:space-between;
+      padding:12px 16px; background:#fff; border-bottom:1px solid var(--border);
+      box-shadow:0 12px 24px rgba(2,6,23,.04);
+    }
+    .brand{font-weight:800; letter-spacing:.3px}
+    .btn{display:inline-flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--border);border-radius:10px;background:#fff;cursor:pointer;font-weight:600}
+    .btn:hover{box-shadow:0 8px 16px rgba(2,6,23,.08)}
+    .container{padding:14px; max-width:1400px; margin:0 auto; display:grid; grid-template-columns:320px 1fr; gap:14px}
+    .card{background:var(--panel);border:1px solid var(--border);border-radius:14px;box-shadow:0 8px 22px rgba(2,6,23,.06);padding:14px}
+    .card h2{margin:0 0 8px;font-size:15px;letter-spacing:.3px}
+    .muted{color:var(--muted)}
+    .pod{border:1px solid var(--border);border-radius:12px;padding:10px;cursor:pointer;transition:transform .12s,box-shadow .12s,border-color .12s}
+    .pod:hover{transform:translateY(-1px);box-shadow:0 8px 18px rgba(2,6,23,.06)}
+    .pod.active{border-color:var(--accent);box-shadow:0 0 0 3px var(--ring)}
+    .status{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border-radius:999px;border:1px solid var(--border);font-size:12px}
+    .status.ok{border-color:rgba(16,185,129,.4);color:var(--ok);background:rgba(16,185,129,.08)}
+    .status.bad{border-color:rgba(239,68,68,.4);color:var(--danger);background:rgba(239,68,68,.08)}
+    pre{margin:0;background:#0b1220;color:#e5e7eb;padding:12px;border-radius:10px;max-height:520px;overflow:auto;font-size:12px;line-height:1.5}
+    body.lm-dark pre{background:#020617;}
+    select,input{padding:6px 8px;border:1px solid var(--border);border-radius:8px;background:#fff;color:var(--text)}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">User Logs Monitor</div>
+    <div class="muted" id="updatedAt">—</div>
+  </header>
+
+  <div class="container">
+    <div class="card">
+      <h2>Your Pods</h2>
+      <div id="podList" style="display:flex;flex-direction:column;gap:10px"></div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div class="card">
+        <div class="muted" id="podMeta">Select a pod to view logs.</div>
+        <div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap">
+          <label class="muted">Container</label>
+          <select id="containerSelect"></select>
+          <label class="muted">Tail lines</label>
+          <input id="tailInput" type="number" min="50" max="5000" value="200" style="width:90px" />
+          <button class="btn" id="btnFetch">Fetch logs</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="split" style="margin-bottom:6px">
+          <h2>Logs</h2>
+          <div class="muted" id="logTitle">—</div>
+        </div>
+        <pre id="logArea">No logs loaded.</pre>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const PREFIX = (() => {
+      const match = window.location.pathname.match(/(.*)\/app(\/|$)/);
+      return match ? match[1] : "";
+    })();
+    const joinPath = (base, path) => {
+      if (!path.startsWith("/")) path = "/" + path;
+      const cleaned = base.endsWith("/") && base !== "/" ? base.slice(0, -1) : base;
+      return `${cleaned}${path}`;
+    };
+    const API_BASE = joinPath(PREFIX || "", "/api");
+    const EMBED_MODE = new URLSearchParams(window.location.search).has("embed");
+    const HUB_USER = (() => {
+      try {
+        const parentData = window.parent && window.parent.jhdata;
+        if (parentData && parentData.user) return parentData.user;
+      } catch(_) {}
+      const m = document.cookie.match(/(?:^|;\\s*)username=([^;]+)/);
+      if (m) { try { return decodeURIComponent(m[1]); } catch(_) { return m[1]; } }
+      return null;
+    })();
+
+    if (EMBED_MODE) document.body.classList.add("embed");
+
+    function detectTheme(){
+      const attr = (document.documentElement.getAttribute("data-bs-theme") || "").toLowerCase();
+      if(attr.includes("dark")) return "dark";
+      const cls = document.body.classList;
+      if(cls.contains("dark-mode") || cls.contains("theme-dark")) return "dark";
+      return "light";
+    }
+    function applyTheme(){ document.body.classList.toggle("lm-dark", detectTheme()==="dark"); }
+    const themeObserver = new MutationObserver(applyTheme);
+    themeObserver.observe(document.documentElement, {attributes:true, attributeFilter:["data-bs-theme","class"]});
+    themeObserver.observe(document.body, {attributes:true, attributeFilter:["class"]});
+    applyTheme();
+
+    async function api(path, opts={}){
+      const headers = {...(opts.headers||{})};
+      if(HUB_USER) headers["x-jupyterhub-user"]=HUB_USER;
+      const url = path.startsWith("http") ? path : joinPath(API_BASE, path.replace(/^\/api/,""));
+      const res = await fetch(url, {cache:"no-store", credentials:"include", ...opts, headers});
+      const txt = await res.text();
+      let data={}; try{ data=txt?JSON.parse(txt):{} }catch{}
+      if(!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);
+      return data;
+    }
+
+    const state = { pods:[], selected:null };
+    const $ = s=>document.querySelector(s);
+
+    function fmtAge(sec){
+      if(!sec && sec!==0) return "—";
+      const h=Math.floor(sec/3600), m=Math.floor((sec%3600)/60);
+      return `${h}h ${m}m`;
+    }
+
+    function renderPods(){
+      const list=$("#podList"); list.innerHTML="";
+      if(state.pods.length===0){
+        list.innerHTML='<div class="muted">No pods found. Start a server in JupyterHub then refresh.</div>';
+        return;
+      }
+      state.pods.forEach(p=>{
+        const div=document.createElement("div");
+        div.className="pod"+(state.selected===p.name?" active":"");
+        const st=p.phase||"Unknown";
+        div.innerHTML=`
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div style="font-weight:700">${p.serverName||p.name}</div>
+            <span class="status ${st==='Running'?'ok':'bad'}">${st}</span>
+          </div>
+          <div class="muted" style="margin-top:4px">${p.name}</div>
+          <div class="muted" style="margin-top:4px">Age: ${fmtAge(p.ageSeconds)} | Node: ${p.node||'—'}</div>
+        `;
+        div.onclick=()=>selectPod(p.name);
+        list.appendChild(div);
+      });
+      if(!state.selected){ selectPod(state.pods[0].name); }
+    }
+
+    function selectPod(name){
+      state.selected=name;
+      renderPods();
+      const pod=state.pods.find(x=>x.name===name);
+      if(!pod) return;
+      const cs=pod.containers||[];
+      const sel=$("#containerSelect");
+      sel.innerHTML="";
+      cs.forEach(c=>{
+        const o=document.createElement("option");
+        o.value=c.name; o.textContent=`${c.name} (${c.ready?'ready':'not ready'}, restarts:${c.restartCount})`;
+        sel.appendChild(o);
+      });
+      $("#podMeta").innerHTML = `
+        <div><strong>${pod.name}</strong></div>
+        <div class="muted">Phase: ${pod.phase||'—'} ${pod.reason?`(${pod.reason})`:''}</div>
+        <div class="muted">IP: ${pod.ip||'—'} | Node: ${pod.node||'—'} | Age: ${fmtAge(pod.ageSeconds)}</div>
+        ${pod.message?`<div class="muted">Message: ${pod.message}</div>`:''}
+      `;
+      fetchLogs().catch(()=>{});
+    }
+
+    async function fetchLogs(){
+      if(!state.selected) return;
+      const pod=state.selected;
+      const container=$("#containerSelect").value || null;
+      const tail=Number($("#tailInput").value||200);
+      $("#logArea").textContent="Loading…";
+      const data=await api(`/api/logs?pod=${encodeURIComponent(pod)}&container=${encodeURIComponent(container||'')}&tail=${tail}`);
+      $("#logTitle").textContent=`${pod} / ${container||'default'} (last ${tail} lines)`;
+      $("#logArea").textContent=data.text || "";
+    }
+
+    $("#btnFetch").onclick=()=>fetchLogs().catch(err=>alert(err.message));
+
+    async function refresh(){
+      const data=await api("/api/pods");
+      state.pods=data.items||[];
+      $("#updatedAt").textContent=`Updated: ${new Date().toLocaleString()}`;
+      renderPods();
+    }
+
+    refresh().catch(err=>alert(err.message));
+  </script>
+</body>
+</html>

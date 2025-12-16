@@ -78,6 +78,10 @@
       selectedPods: new Set(),
       podActionStatus: '',
       podActionKind: '',
+      pvcs: [],
+      pvcLoading: false,
+      pvcStatus: '',
+      pvcSearch: '',
     },
     init() {
       if (this.initialized) return;
@@ -110,6 +114,11 @@
         globalRefresh: document.getElementById('global-refresh'),
         syncButton: document.getElementById('pod-sync-now'),
         syncStatus: document.getElementById('pod-sync-status'),
+        pvcTable: document.getElementById('pvc-table'),
+        pvcStatus: document.getElementById('pvc-status'),
+        pvcRefresh: document.getElementById('pvc-refresh'),
+        pvcCleanup: document.getElementById('pvc-cleanup'),
+        pvcSearch: document.getElementById('pvc-search'),
       };
 
       this.limitStatusTimeout = null;
@@ -146,6 +155,21 @@
       if (this.refs.podDeleteButton && !this.refs.podDeleteButton.dataset.bound) {
         this.refs.podDeleteButton.addEventListener('click', () => this.deleteSelectedPods());
         this.refs.podDeleteButton.dataset.bound = '1';
+      }
+      if (this.refs.pvcRefresh && !this.refs.pvcRefresh.dataset.bound) {
+        this.refs.pvcRefresh.addEventListener('click', () => this.loadPvcs());
+        this.refs.pvcRefresh.dataset.bound = '1';
+      }
+      if (this.refs.pvcCleanup && !this.refs.pvcCleanup.dataset.bound) {
+        this.refs.pvcCleanup.addEventListener('click', () => this.cleanupPvcs());
+        this.refs.pvcCleanup.dataset.bound = '1';
+      }
+      if (this.refs.pvcSearch && !this.refs.pvcSearch.dataset.bound) {
+        this.refs.pvcSearch.addEventListener('input', (event) => {
+          this.state.pvcSearch = (event.target.value || '').toLowerCase();
+          this.renderPvcs();
+        });
+        this.refs.pvcSearch.dataset.bound = '1';
       }
       this.bindMachineForms();
       this.initialized = true;
@@ -508,6 +532,60 @@
         this.renderMachines();
       }
     },
+    async loadPvcs(silent) {
+      if (this.state.pvcLoading) return;
+      this.state.pvcLoading = true;
+      if (!silent) {
+        this.state.pvcStatus = '載入 PVC 列表中...';
+        this.renderPvcs();
+      }
+      try {
+        const res = await fetchJSON('/pvcs');
+        this.state.pvcs = (res && res.items) || [];
+        if (!silent) {
+          this.state.pvcStatus = `共 ${this.state.pvcs.length} 筆`;
+        }
+      } catch (err) {
+        console.error(err);
+        this.state.pvcStatus = err?.message || '載入 PVC 失敗';
+      } finally {
+        this.state.pvcLoading = false;
+        this.renderPvcs();
+      }
+    },
+    async cleanupPvcs() {
+      if (this.state.pvcLoading) return;
+      this.state.pvcStatus = '清理中 (閒置 >7 天)...';
+      this.renderPvcs();
+      try {
+        const res = await fetchJSON('/pvcs/cleanup?threshold_days=7', { method: 'POST' });
+        const deleted = (res && res.deleted) || [];
+        const errors = (res && res.errors) || [];
+        this.state.pvcStatus = `清理完成，刪除 ${deleted.length}，錯誤 ${errors.length}`;
+      } catch (err) {
+        console.error(err);
+        this.state.pvcStatus = err?.message || '清理失敗';
+      } finally {
+        await this.loadPvcs(true);
+        this.renderPvcs();
+      }
+    },
+    async deletePvc(name) {
+      if (!name) return;
+      if (!window.confirm(`確認刪除 PVC：${name}？`)) return;
+      this.state.pvcStatus = `刪除 ${name} 中...`;
+      this.renderPvcs();
+      try {
+        await fetchJSON(`/pvcs/${encodeURIComponent(name)}`, { method: 'DELETE' });
+        this.state.pvcStatus = `已刪除 ${name}`;
+      } catch (err) {
+        console.error(err);
+        this.state.pvcStatus = err?.message || `刪除失敗：${name}`;
+      } finally {
+        await this.loadPvcs(true);
+        this.renderPvcs();
+      }
+    },
     setLoading(isLoading) {
       if (!this.refs || !this.refs.globalRefresh) return;
       const current = this.state.loadingCount || 0;
@@ -540,6 +618,13 @@
           this.loadMachines();
         } else {
           this.renderMachines();
+        }
+      }
+      if (section === 'pvcs') {
+        if (!this.state.pvcs.length) {
+          this.loadPvcs();
+        } else {
+          this.renderPvcs();
         }
       }
     },
@@ -983,6 +1068,48 @@
           `;
         })
         .join('');
+    },
+    renderPvcs() {
+      if (!this.refs || !this.refs.pvcTable) return;
+      if (this.refs.pvcStatus) {
+        this.refs.pvcStatus.textContent = this.state.pvcStatus || '';
+      }
+      if (this.state.pvcLoading) {
+        this.refs.pvcTable.innerHTML = '<tr><td colspan="7" class="muted">載入中…</td></tr>';
+        return;
+      }
+      const search = (this.state.pvcSearch || '').trim().toLowerCase();
+      const list = (this.state.pvcs || []).filter((pvc) => {
+        if (!search) return true;
+        const haystack = `${pvc.name || ''} ${pvc.storage_class || ''}`.toLowerCase();
+        return haystack.includes(search);
+      });
+      if (!list.length) {
+        this.refs.pvcTable.innerHTML = '<tr><td colspan="7" class="muted">沒有 singleuser PVC。</td></tr>';
+        return;
+      }
+      this.refs.pvcTable.innerHTML = list
+        .map((pvc) => {
+          const age = typeof pvc.age_days === 'number' ? pvc.age_days.toFixed(2) : '—';
+          const created = pvc.creation_timestamp ? formatDate(pvc.creation_timestamp) : '—';
+          return `
+            <tr>
+              <td>${escapeAttr(pvc.name)}</td>
+              <td>${escapeAttr(pvc.storage_class || '')}</td>
+              <td>${escapeAttr(pvc.phase || '')}</td>
+              <td>${escapeAttr(pvc.capacity || '')}</td>
+              <td>${created}</td>
+              <td>${age}</td>
+              <td><button class="btn danger" data-delete-pvc="${escapeAttr(pvc.name)}">刪除</button></td>
+            </tr>
+          `;
+        })
+        .join('');
+      this.refs.pvcTable.querySelectorAll('[data-delete-pvc]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          this.deletePvc(btn.dataset.deletePvc);
+        });
+      });
     },
     sessionsForUser(userId) {
       return this.state.sessions.filter((session) => session.user_id === userId);

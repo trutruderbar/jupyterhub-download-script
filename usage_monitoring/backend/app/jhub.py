@@ -6,12 +6,14 @@ import shlex
 import subprocess
 from collections import defaultdict
 from datetime import datetime, timezone
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
 from .timeutils import isoformat_local, LOCAL_TZ
 
 DEFAULT_KUBECTL = "microk8s kubectl"
 DEFAULT_NAMESPACE = "jhub"
+SINGLEUSER_PVC_PREFIX = os.environ.get("SINGLEUSER_PVC_PREFIX", "claim-")
+PVC_LAST_USED_ANNOTATION = os.environ.get("PVC_LAST_USED_ANNOTATION", "usage-portal.ubilink.ai/last-used")
 
 KUBECTL_CMD = shlex.split(os.environ.get("KUBECTL_BIN", DEFAULT_KUBECTL))
 JHUB_NAMESPACE = os.environ.get("JHUB_NAMESPACE", DEFAULT_NAMESPACE)
@@ -70,6 +72,99 @@ def _extract_username(metadata: Dict[str, dict], pod_name: str) -> Tuple[str, st
         if cleaned:
             return cleaned, cleaned
     return "(unknown)", "(unknown)"
+
+
+def list_singleuser_pvcs() -> List[dict]:
+    """Return metadata of singleuser PVCs (names starting with SINGLEUSER_PVC_PREFIX)."""
+    args = ["get", "pvc", "-n", JHUB_NAMESPACE, "-o", "json"]
+    raw = run_kubectl(args)
+    data = json.loads(raw)
+    now = datetime.now(timezone.utc)
+    items: List[dict] = []
+    for item in data.get("items", []):
+        metadata = item.get("metadata", {})
+        name = metadata.get("name", "")
+        if not name.startswith(SINGLEUSER_PVC_PREFIX):
+            continue
+        creation_raw = metadata.get("creationTimestamp")
+        created_at = None
+        age_days: Optional[float] = None
+        if creation_raw:
+            try:
+                created_at = datetime.fromisoformat(creation_raw.replace("Z", "+00:00"))
+                age_days = (now - created_at).total_seconds() / 86400.0
+            except Exception:
+                created_at = None
+        spec = item.get("spec", {}) or {}
+        status = item.get("status", {}) or {}
+        items.append(
+            {
+                "name": name,
+                "namespace": metadata.get("namespace", JHUB_NAMESPACE),
+                "storage_class": spec.get("storageClassName") or "",
+                "volume_name": status.get("boundVolume") or status.get("volumeName") or "",
+                "phase": status.get("phase") or "",
+                "capacity": (status.get("capacity") or {}).get("storage"),
+                "creation_timestamp": creation_raw,
+                "age_days": age_days,
+                "annotations": metadata.get("annotations") or {},
+            }
+        )
+    return items
+
+
+def delete_pvc(name: str) -> None:
+    """Delete a PVC by name in the JupyterHub namespace."""
+    args = ["delete", "pvc", name, "-n", JHUB_NAMESPACE, "--ignore-not-found"]
+    run_kubectl(args)
+
+
+def list_pvc_claims_in_use() -> Set[str]:
+    """Return claimNames referenced by any non-terminal Pod in the JupyterHub namespace."""
+    args = ["get", "pods", "-n", JHUB_NAMESPACE, "-o", "json"]
+    raw = run_kubectl(args)
+    data = json.loads(raw)
+    in_use: Set[str] = set()
+    for item in data.get("items", []):
+        status = item.get("status", {}) or {}
+        phase = str(status.get("phase") or "").lower()
+        if phase in {"succeeded", "failed"}:
+            continue
+        spec = item.get("spec", {}) or {}
+        for vol in spec.get("volumes", []) or []:
+            pvc = (vol.get("persistentVolumeClaim") or {}) if isinstance(vol, dict) else {}
+            claim_name = pvc.get("claimName") if isinstance(pvc, dict) else None
+            if claim_name:
+                in_use.add(claim_name)
+    return in_use
+
+
+def patch_pvc_annotations(name: str, annotations: Dict[str, str]) -> None:
+    """Merge-patch PVC annotations."""
+    patch = {"metadata": {"annotations": annotations}}
+    args = ["patch", "pvc", name, "-n", JHUB_NAMESPACE, "--type", "merge", "-p", json.dumps(patch)]
+    run_kubectl(args)
+
+
+def _format_rfc3339_utc(value: datetime) -> str:
+    return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def parse_rfc3339(value: Optional[str]) -> Optional[datetime]:
+    if not value:
+        return None
+    cleaned = value.strip()
+    try:
+        if cleaned.endswith("Z"):
+            cleaned = cleaned[:-1] + "+00:00"
+        return datetime.fromisoformat(cleaned).astimezone(timezone.utc)
+    except Exception:
+        return None
+
+
+def touch_pvc_last_used(name: str, now: Optional[datetime] = None) -> None:
+    timestamp = now or datetime.now(timezone.utc)
+    patch_pvc_annotations(name, {PVC_LAST_USED_ANNOTATION: _format_rfc3339_utc(timestamp)})
 
 
 def parse_cpu_to_millicores(value: Optional[str]) -> Optional[float]:

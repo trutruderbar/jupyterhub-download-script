@@ -1,0 +1,461 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Ubilink Port Mapper</title>
+  <style>
+    :root{
+      --bg:#f8fafc; --panel:#ffffff; --accent:#2563eb; --accent-2:#7c3aed;
+      --text:#0f172a; --muted:#64748b; --border:#e5e7eb; --ring:rgba(37,99,235,.16);
+      --ok:#10b981; --danger:#ef4444;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0; background:radial-gradient(900px 460px at 12% -10%, rgba(37,99,235,.08), transparent 60%),
+               radial-gradient(800px 420px at 110% 10%, rgba(124,58,237,.08), transparent 60%),
+               var(--bg);
+      color:var(--text);
+      font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Noto Sans,Ubuntu,Cantarell,Helvetica,Arial,"Apple Color Emoji","Segoe UI Emoji";
+      min-height:100dvh;
+    }
+    body.pm-dark{
+      background:radial-gradient(900px 460px at 12% -10%, rgba(59,130,246,.14), transparent 60%),
+                 radial-gradient(800px 420px at 110% 10%, rgba(124,58,237,.18), transparent 60%),
+                 #0f172a;
+      --bg:#0b1220;
+      --panel:#0f172a;
+      --accent:#60a5fa;
+      --accent-2:#7c3aed;
+      --text:#e5e7eb;
+      --muted:#cbd5e1;
+      --border:#1f2937;
+      --ring:rgba(96,165,250,.18);
+      --ok:#34d399;
+      --danger:#f87171;
+    }
+    body.embed{background:var(--bg); min-height:auto;}
+    body.embed header{display:none;}
+    body.embed .container{padding:10px 12px; margin-top:0;}
+    body.embed .card{box-shadow:none;}
+    header{
+      position:sticky; top:0; z-index:10;
+      display:flex; align-items:center; justify-content:space-between;
+      padding:12px 16px; background:#fff; border-bottom:1px solid var(--border);
+      box-shadow:0 12px 24px rgba(2,6,23,.04);
+    }
+    .brand{display:flex;align-items:center;gap:10px}
+    .logo{height:26px;width:auto;display:block}
+    .userbox{display:flex;align-items:center;gap:10px}
+    .btn{display:inline-flex;align-items:center;gap:8px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:#fff;cursor:pointer;transition:transform .12s,box-shadow .12s;font-weight:600}
+    .btn:hover{transform:translateY(-1px);box-shadow:0 8px 16px rgba(2,6,23,.08)}
+    .btn.primary{background:linear-gradient(135deg,var(--accent),var(--accent-2));border-color:transparent;color:#fff}
+    .btn.danger{background:rgba(239,68,68,.08);border-color:rgba(239,68,68,.4);color:var(--danger)}
+    .btn.ghost{background:transparent}
+    .btn[disabled]{opacity:.6;cursor:not-allowed;transform:none;box-shadow:none}
+    .container{display:grid;grid-template-columns:320px 1fr;gap:14px;padding:14px;align-items:start}
+    .card{background:var(--panel);border:1px solid var(--border);border-radius:14px;box-shadow:0 8px 22px rgba(2,6,23,.06);padding:14px}
+    .card h2{margin:0 0 8px;font-size:15px;letter-spacing:.3px}
+    .muted{color:var(--muted)}
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}
+    .pill{display:inline-flex;align-items:center;gap:8px;padding:6px 8px;border-radius:999px;border:1px solid var(--border);background:#fff;font-size:12px;color:var(--muted)}
+    .pill strong{color:var(--text)}
+    input{
+      width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--border);background:#fff;color:var(--text);
+      font-size:14px;transition:border-color .15s,box-shadow .15s
+    }
+    input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--ring);outline:none}
+    table{width:100%;border-collapse:collapse;font-size:13px}
+    th,td{padding:10px 8px;border-bottom:1px solid var(--border);text-align:left;vertical-align:middle}
+    td.actions{text-align:right;white-space:nowrap}
+    .status{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border-radius:999px;border:1px solid var(--border);font-size:12px}
+    .status.ok{border-color:rgba(16,185,129,.4);color:var(--ok);background:rgba(16,185,129,.08)}
+    .status.bad{border-color:rgba(239,68,68,.4);color:var(--danger);background:rgba(239,68,68,.08)}
+    .pod-list{display:flex;flex-direction:column;gap:10px}
+    .pod{border:1px solid var(--border);border-radius:12px;padding:12px;cursor:pointer;transition:transform .12s,box-shadow .12s,border-color .12s}
+    .pod:hover{transform:translateY(-1px);box-shadow:0 8px 18px rgba(2,6,23,.06)}
+    .pod.active{border-color:var(--accent);box-shadow:0 0 0 3px var(--ring)}
+    .spinner{width:16px;height:16px;border:2px solid rgba(15,23,42,.16);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;display:inline-block}
+    .toast{position:fixed;right:16px;bottom:16px;min-width:220px;max-width:70vw;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:12px;padding:10px 12px;box-shadow:0 18px 40px rgba(2,6,23,.12);font-size:13px;display:none}
+    .toast.ok{border-color:rgba(16,185,129,.5)}
+    .toast.err{border-color:rgba(239,68,68,.5)}
+    .hint{color:var(--muted);font-size:12px}
+    .split{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+    .badge{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border-radius:8px;background:#f3f4f6;font-size:12px}
+    .loading-cover{
+      position:fixed; inset:0; display:grid; place-items:center;
+      background:rgba(248,250,252,.9); z-index:30; color:var(--muted); font-size:14px;
+    }
+    @keyframes spin{to{transform:rotate(360deg)}}
+    @media (max-width:960px){ .container{grid-template-columns:1fr} }
+  </style>
+</head>
+<body>
+  <div id="loading" class="loading-cover">
+    <div style="display:flex;flex-direction:column;align-items:center;gap:8px">
+      <span class="spinner" style="width:20px;height:20px;border-width:3px"></span>
+      <span>Checking session…</span>
+    </div>
+  </div>
+
+  <div id="app" style="display:none">
+    <header>
+      <div class="brand">
+        <img src="./static/logoblack.png" alt="Ubilink" class="logo" />
+        <div>
+          <div style="font-weight:700">Port Mapper</div>
+          <div class="hint">Route /<strong>pod-suffix</strong>/<strong>endpoint</strong> → pod IP:port</div>
+        </div>
+      </div>
+      <div class="userbox">
+        <a href="https://jhubserver2.ubilink.ai" class="btn ghost" style="text-decoration:none" target="_blank" rel="noopener">JupyterHub</a>
+        <span id="displayName" style="font-weight:700">—</span>
+        <button id="btnLogout" class="btn" type="button">Logout</button>
+      </div>
+    </header>
+
+    <div class="container">
+      <div class="card">
+        <div class="split" style="margin-bottom:6px">
+          <h2>My Pods</h2>
+          <button class="btn ghost" id="btnRefreshPods"><span class="spinner" id="spinPods" style="display:none"></span><span>Refresh</span></button>
+        </div>
+        <div id="podsHint" class="hint" style="margin-bottom:10px">Authenticated via JupyterHub</div>
+        <div id="podList" class="pod-list"></div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div class="card">
+          <div class="split">
+            <h2>Add / Update Endpoint</h2>
+            <div id="currentPod" class="badge">No pod selected</div>
+          </div>
+          <div class="grid" style="margin-top:10px">
+            <div>
+              <label class="muted">Endpoint (e.g. /test)</label>
+              <input id="endpoint" placeholder="/test" />
+            </div>
+            <div>
+              <label class="muted">Pod internal port</label>
+              <input id="port" type="number" min="1" max="65535" placeholder="8001" />
+            </div>
+            <div>
+              <label class="muted">Note (optional)</label>
+              <input id="note" placeholder="Description" />
+            </div>
+          </div>
+          <div class="split" style="margin-top:12px">
+            <div class="hint" id="urlPreview">Pick a pod to see URL</div>
+            <div style="display:flex;gap:10px">
+              <button class="btn" id="btnClear">Clear</button>
+              <button class="btn primary" id="btnAdd" disabled>Save mapping</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="split" style="margin-bottom:6px">
+            <h2>Mappings</h2>
+            <div class="hint">Only the selected pod is shown. Click to copy URL.</div>
+          </div>
+          <div id="mapTableWrap" style="overflow:auto">
+            <table id="mapTable">
+              <thead><tr><th>Endpoint</th><th>Port</th><th>Pod</th><th>URL</th><th class="actions"></th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <script>
+    const PREFIX = (() => {
+      const match = window.location.pathname.match(/(.*)\/app(\/|$)/);
+      return match ? match[1] : "";
+    })();
+	    const joinPath = (base, path) => {
+	      if (!path.startsWith("/")) path = "/" + path;
+	      const cleaned = base.endsWith("/") && base !== "/" ? base.slice(0, -1) : base;
+	      return `${cleaned}${path}`;
+	    };
+	    const API_BASE = joinPath(PREFIX || "", "/api");
+	    const PUBLIC_BASE = (window.location.origin || "").replace(/\/+$/,"") + (PREFIX || "");
+	    const ORIGIN_BASE = (window.PORT_MAPPER_HOST || window.location.origin || "https://jhubserver2.ubilink.ai").replace(/\/+$/,"");
+	    const absolutizeUrl = (url) => {
+	      if (!url) return "";
+	      if (url.startsWith("http://") || url.startsWith("https://")) return url;
+	      if (!url.startsWith("/")) url = "/" + url;
+	      return ORIGIN_BASE + url;
+	    };
+	    const LOGIN_URL = window.PORT_MAPPER_LOGIN_URL || "/hub/login";
+	    const LOGOUT_URL = window.PORT_MAPPER_LOGOUT_URL || "/hub/logout";
+	    const AUTH_ME_URL = "/me";
+	    const EMBED_MODE = new URLSearchParams(window.location.search).has("embed");
+	    const HUB_USER = (() => {
+      try {
+        const parentData = window.parent && window.parent.jhdata;
+        if (parentData && parentData.user) {
+          return parentData.user;
+        }
+      } catch (_) {}
+      const match = document.cookie.match(/(?:^|;\\s*)username=([^;]+)/);
+      if (match) {
+        try { return decodeURIComponent(match[1]); } catch(_) { return match[1]; }
+      }
+      return null;
+    })();
+
+    const $  = q => document.querySelector(q);
+    const state = { user:null, pods:[], mappings:[], selected:null };
+
+    if (EMBED_MODE) {
+      document.body.classList.add("embed");
+    }
+
+    function detectTheme(){
+      const attr = (document.documentElement.getAttribute("data-bs-theme") || "").toLowerCase();
+      if(attr.includes("dark")) return "dark";
+      const cls = document.body.classList;
+      if(cls.contains("dark-mode") || cls.contains("theme-dark")) return "dark";
+      return "light";
+    }
+
+    function applyTheme(){
+      const mode = detectTheme();
+      document.body.classList.toggle("pm-dark", mode === "dark");
+    }
+
+    const themeObserver = new MutationObserver(applyTheme);
+    themeObserver.observe(document.documentElement, { attributes:true, attributeFilter:["data-bs-theme","class"] });
+    themeObserver.observe(document.body, { attributes:true, attributeFilter:["class"] });
+    applyTheme();
+
+    function toast(msg, kind){
+      const t = $("#toast");
+      t.textContent = msg;
+      t.className = "toast " + (kind==="ok"?"ok":kind==="err"?"err":"");
+      t.style.display = "block";
+      clearTimeout(toast._t);
+      toast._t = setTimeout(()=> t.style.display="none", 2600);
+    }
+
+    function redirectToPortal(target){
+      window.location.href = target || LOGIN_URL;
+    }
+
+    function normalizeApiPath(path){
+      if (!path) return API_BASE;
+      if (path.startsWith("http://") || path.startsWith("https://")) return path;
+      path = path.replace(/^\/api/, "");
+      return joinPath(API_BASE, path);
+    }
+
+    async function api(path, opts={}){
+      const headers = {"Content-Type":"application/json", ...(opts.headers||{})};
+      if (HUB_USER && !headers["x-jupyterhub-user"]) {
+        headers["x-jupyterhub-user"] = HUB_USER;
+      }
+      const url = normalizeApiPath(path);
+      let res, txt;
+      try{
+        res = await fetch(url, {cache:"no-store", credentials:"include", ...opts, headers});
+        txt = await res.text();
+      }catch(err){
+        toast("Connection failed, please try again","err");
+        throw err;
+      }
+      let data = {};
+      try{ data = txt ? JSON.parse(txt) : {}; }catch{}
+      if(res.status === 401){
+        redirectToPortal();
+        throw new Error("Not authenticated");
+      }
+      if(!res.ok){
+        throw new Error(data?.detail || data?.message || `HTTP ${res.status}`);
+      }
+      return data;
+    }
+
+    function normalizeEndpoint(s){
+      s = (s||"").trim();
+      if(!s.startsWith("/")) s = "/" + s;
+      const parts = s.split("/").filter(Boolean);
+      let out = "/" + parts.join("/");
+      if(out !== "/" && out.endsWith("/")) out = out.replace(/\/+$/,"");
+      return out || "/";
+    }
+
+    function renderPods(){
+      const list = $("#podList"); list.innerHTML = "";
+      if(state.pods.length === 0){
+        list.innerHTML = '<div class="muted">No pods found. Start a server in JupyterHub then refresh.</div>';
+        $("#currentPod").textContent = "No pod selected";
+        $("#btnAdd").disabled = true;
+        $("#urlPreview").textContent = "Pick a pod to see URL";
+        return;
+      }
+      state.pods.forEach(p=>{
+        const div = document.createElement("div");
+        div.className = "pod" + (p.suffix===state.selected?" active":"");
+        div.innerHTML = `
+          <div class="split">
+            <div style="font-weight:700">${p.suffix}</div>
+            <span class="status ${p.phase==='Running'?'ok':'bad'}">${p.phase||'Unknown'}</span>
+          </div>
+          <div class="muted" style="margin-top:4px">${p.name||""}</div>
+          <div class="muted" style="margin-top:4px">IP: ${p.ip||'—'} | Node: ${p.node||'—'}</div>
+        `;
+        div.onclick = ()=> { state.selected = p.suffix; renderPods(); renderMappings(); updatePreview(); };
+        list.appendChild(div);
+      });
+      if(!state.selected && state.pods.length>0){
+        state.selected = state.pods[0].suffix;
+        renderPods(); renderMappings(); updatePreview();
+      } else {
+        updatePreview();
+      }
+    }
+
+    function updatePreview(){
+      if(!state.selected){
+        $("#currentPod").textContent = "No pod selected";
+        $("#btnAdd").disabled = true;
+        $("#urlPreview").textContent = "Pick a pod to see URL";
+        return;
+      }
+      const pod = state.pods.find(p=>p.suffix===state.selected);
+	      $("#currentPod").textContent = pod ? pod.name : state.selected;
+	      $("#btnAdd").disabled = false;
+	      const ep = normalizeEndpoint($("#endpoint").value || "/example");
+	      const base = (PUBLIC_BASE || absolutizeUrl(PREFIX || "")).replace(/\/+$/,"");
+	      $("#urlPreview").textContent = `External path: ${base}/${state.selected}${ep}`;
+	    }
+	
+	    function renderMappings(){
+	      const tbody = $("#mapTable tbody");
+	      tbody.innerHTML = "";
+      const items = state.mappings.filter(m => m.podSuffix === state.selected);
+      if(items.length === 0){
+        tbody.innerHTML = '<tr><td colspan="5" class="muted">No mapping yet. Add one above.</td></tr>';
+        return;
+	      }
+	      items.forEach(m=>{
+	        const absUrl = absolutizeUrl(m.url || "");
+	        const tr = document.createElement("tr");
+	        tr.innerHTML = `
+	          <td><span class="pill"><span class="muted">EP</span><strong>${m.endpoint}</strong></span><div class="hint">${m.note||''}</div></td>
+	          <td>${m.port}</td>
+	          <td>${m.podName||m.podSuffix||''}</td>
+	          <td><a href="${absUrl}" target="_blank" rel="noreferrer">${absUrl}</a></td>
+	          <td class="actions">
+	            <button class="btn ghost" data-act="copy">Copy</button>
+	            <button class="btn danger" data-act="del">Delete</button>
+	          </td>
+	        `;
+	        tr.querySelector('[data-act="copy"]').onclick = ()=> copyText(absUrl);
+	        tr.querySelector('[data-act="del"]').onclick = ()=> deleteMapping(m);
+	        tbody.appendChild(tr);
+	      });
+	    }
+
+    async function copyText(text){
+      try{
+        await navigator.clipboard.writeText(text);
+        toast("Copied","ok");
+      }catch(_){
+        const ta = document.createElement("textarea");
+        ta.value = text; ta.style.position="fixed"; ta.style.left="-9999px";
+        document.body.appendChild(ta); ta.select();
+        try{ document.execCommand("copy"); toast("Copied","ok"); }
+        catch(e){ toast("Copy failed","err"); }
+        finally{ document.body.removeChild(ta); }
+      }
+    }
+
+    async function deleteMapping(m){
+      if(!confirm(`Delete ${m.endpoint}?`)) return;
+      try{
+        const cleaned = encodeURIComponent((m.endpoint || "").replace(/^\/+/, ""));
+        await api(`/api/mappings/${encodeURIComponent(m.podSuffix)}/${cleaned}`, { method:"DELETE" });
+        state.mappings = state.mappings.filter(x=> !(x.podSuffix===m.podSuffix && x.endpoint===m.endpoint));
+        renderMappings();
+        toast("Deleted","ok");
+      }catch(err){
+        toast(err.message || "Delete failed","err");
+      }
+    }
+
+    async function refreshAll(){
+      $("#spinPods").style.display = "inline-block";
+      try{
+        const data = await api("/api/mappings", { method:"GET" });
+        state.pods = data.pods || [];
+        state.mappings = (data.items || []).map(m=> ({...m, endpoint: normalizeEndpoint(m.endpoint)}));
+        if(state.pods.length === 0){
+          state.selected = null;
+        }
+        if(state.pods.length > 0 && !state.selected){
+          state.selected = state.pods[0].suffix;
+        }
+        renderPods();
+        renderMappings();
+      }catch(err){
+        if(err.message !== "Not authenticated"){
+          toast(err.message || "Failed to load","err");
+        }
+      }finally{
+        $("#spinPods").style.display = "none";
+      }
+    }
+
+    async function ensureAuth(){
+      try{
+        const data = await api(AUTH_ME_URL, { method:"GET" });
+        state.user = data.raw || { account: data.account };
+        $("#displayName").textContent = state.user.account || state.user.username || "User";
+        $("#loading").style.display = "none";
+        $("#app").style.display = "block";
+        await refreshAll();
+      }catch(err){
+        // api() already handles redirect
+      }
+    }
+
+    // Events
+    $("#btnLogout").onclick = ()=> redirectToPortal(LOGOUT_URL);
+    $("#btnRefreshPods").onclick = ()=> refreshAll();
+    $("#btnClear").onclick = ()=>{
+      $("#endpoint").value = "";
+      $("#port").value = "";
+      $("#note").value = "";
+      updatePreview();
+    };
+    $("#endpoint").addEventListener("input", updatePreview);
+
+    $("#btnAdd").onclick = async ()=>{
+      if(!state.selected){ toast("Select a pod first","err"); return; }
+      const endpoint = normalizeEndpoint($("#endpoint").value || "");
+      const port = Number($("#port").value);
+      if(!endpoint || !port){ toast("Enter endpoint and port","err"); return; }
+      try{
+        const res = await api("/api/mappings", {
+          method:"POST",
+          body: JSON.stringify({ pod_suffix: state.selected, endpoint, port, note: $("#note").value || null })
+        });
+        const existing = state.mappings.filter(m=> !(m.podSuffix===res.podSuffix && m.endpoint===res.endpoint));
+        state.mappings = [...existing, res];
+        renderMappings();
+        toast("Mapping saved","ok");
+      }catch(err){
+        toast(err.message || "Save failed","err");
+      }
+    };
+
+    // Init
+    ensureAuth();
+  </script>
+</body>
+</html>

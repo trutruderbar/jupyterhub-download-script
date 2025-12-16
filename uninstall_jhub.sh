@@ -39,6 +39,13 @@ fi
 : "${PORTAL_ROOT_DIR:=/root/jhub}"
 : "${PORTAL_CONFIG_PATH:=$(pwd)/portal-config.js}"
 : "${JHUB_NS:=jhub}"
+: "${ENABLE_MPI_OPERATOR:=false}"
+: "${MPI_OPERATOR_NAMESPACE:=mpi-operator}"
+: "${ENABLE_MPI_USER_NS:=true}"
+: "${MPI_USERS_CSV:=}"
+: "${MPI_USER_NAMESPACE_PREFIX:=mpi}"
+: "${ADMIN_USERS_CSV:=}"
+: "${ADMIN_USER:=adminuser}"
 
 for arg in "$@"; do
   case "$arg" in
@@ -106,7 +113,7 @@ _delete_namespace(){
   local ns="$1"
   [[ -z "${ns}" ]] && return 0
   # 修正：當 --no-operators 時才跳過 operator 命名空間
-  if $NO_OPERATORS && [[ "${ns}" == "gpu-operator" || "${ns}" == "nvidia-network-operator" ]]; then
+  if $NO_OPERATORS && [[ "${ns}" == "gpu-operator" || "${ns}" == "nvidia-network-operator" || "${ns}" == "${MPI_OPERATOR_NAMESPACE}" ]]; then
     warn "[k8s] skip namespace ${ns}（--no-operators 啟用）"
     return 0
   fi
@@ -148,6 +155,33 @@ _cluster_ip_list(){
     [[ -z "${token}" ]] && continue
     printf '%s\n' "${token}"
   done
+}
+_mpi_sanitize_name(){
+  local raw="${1,,}"
+  raw="${raw//[^a-z0-9-]/-}"
+  while [[ "${raw}" == *--* ]]; do raw="${raw//--/-}"; done
+  raw="${raw##-}"
+  raw="${raw%%-}"
+  [[ -z "${raw}" ]] && raw="user"
+  printf '%s' "${raw}"
+}
+_mpi_user_list(){
+  local raw="${MPI_USERS_CSV:-}"
+  if [[ -z "${raw}" ]]; then
+    raw="${ADMIN_USERS_CSV:-${ADMIN_USER:-}}"
+  fi
+  raw="${raw//,/ }"
+  local -a uniq=()
+  local token seen
+  for token in ${raw}; do
+    token="${token//[[:space:]]/}"
+    [[ -z "${token}" ]] && continue
+    if [[ -z "${seen}" || ! "${seen}" =~ (^|,)"${token}"(,|$) ]]; then
+      uniq+=("${token}")
+      seen="${seen},${token}"
+    fi
+  done
+  printf '%s\n' "${uniq[@]}"
 }
 _cluster_requirements(){
   _cluster_enabled || return 0
@@ -305,6 +339,11 @@ helm_uninstall_all(){
     else
       warn "[helm] release network-operator 不存在，略過卸載"
     fi
+    if [[ "${ENABLE_MPI_OPERATOR}" == "true" ]] && $HELM_BIN -n "${MPI_OPERATOR_NAMESPACE}" status mpi-operator >/dev/null 2>&1; then
+      run "$HELM_BIN -n ${MPI_OPERATOR_NAMESPACE} uninstall mpi-operator --no-hooks --wait=false --timeout 60s || true"
+    elif [[ "${ENABLE_MPI_OPERATOR}" == "true" ]]; then
+      warn "[helm] release mpi-operator 不存在，略過卸載"
+    fi
   fi
 }
 
@@ -314,6 +353,17 @@ delete_namespaces_and_crds(){
   if ! $NO_OPERATORS; then
     _delete_namespace "gpu-operator"
     _delete_namespace "nvidia-network-operator"
+    if [[ "${ENABLE_MPI_OPERATOR}" == "true" ]]; then
+      _delete_namespace "${MPI_OPERATOR_NAMESPACE}"
+      if [[ "${ENABLE_MPI_USER_NS}" == "true" ]]; then
+        while IFS= read -r user; do
+          [[ -z "${user}" ]] && continue
+          local safe
+          safe="$(_mpi_sanitize_name "${user}")"
+          _delete_namespace "${MPI_USER_NAMESPACE_PREFIX}-${safe}"
+        done < <(_mpi_user_list)
+      fi
+    fi
   fi
 
   # 移除 RuntimeClass nvidia（若有）
@@ -335,7 +385,21 @@ delete_namespaces_and_crds(){
   # 如有卡 Terminating，且允許 FORCE，移除 finalizers
   if $FORCE; then
     remove_finalizers "${JHUB_NS}"
-    $NO_OPERATORS || { remove_finalizers "gpu-operator"; remove_finalizers "nvidia-network-operator"; }
+    if ! $NO_OPERATORS; then
+      remove_finalizers "gpu-operator"
+      remove_finalizers "nvidia-network-operator"
+      if [[ "${ENABLE_MPI_OPERATOR}" == "true" ]]; then
+        remove_finalizers "${MPI_OPERATOR_NAMESPACE}"
+        if [[ "${ENABLE_MPI_USER_NS}" == "true" ]]; then
+          while IFS= read -r user; do
+            [[ -z "${user}" ]] && continue
+            local safe
+            safe="$(_mpi_sanitize_name "${user}")"
+            remove_finalizers "${MPI_USER_NAMESPACE_PREFIX}-${safe}"
+          done < <(_mpi_user_list)
+        fi
+      fi
+    fi
   fi
 }
 

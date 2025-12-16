@@ -232,6 +232,15 @@ body {
   gap: 24px;
 }
 
+.pvc-layout.layout {
+  max-width: 100%;
+  grid-template-columns: 1fr;
+}
+
+.pvc-layout .card {
+  width: 100%;
+}
+
 .sidebar {
   background: var(--panel);
   border: 1px solid var(--panel-border);
@@ -744,6 +753,39 @@ body {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 12px;
+}
+
+.pvc-layout .main.wide {
+  max-width: none;
+}
+
+.pvc-header {
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.pvc-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.pvc-actions input[type="search"] {
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--panel-border);
+  min-width: 220px;
+}
+
+.table-scroll.full-width {
+  width: 100%;
+}
+
+.table-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .machine-table table {

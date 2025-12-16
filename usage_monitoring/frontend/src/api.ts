@@ -42,9 +42,24 @@ export interface UsageSummary {
   total_estimated_cost: number;
 }
 
+export interface PvcInfo {
+  name: string;
+  namespace: string;
+  storage_class: string;
+  volume_name?: string;
+  phase: string;
+  capacity?: string;
+  creation_timestamp?: string;
+  age_days?: number | null;
+}
+
 export const fetchUsers = () => api.get<User[]>('/users');
 export const fetchSessions = (userId?: number) =>
   api.get<SessionRecord[]>('/sessions', { params: userId ? { user_id: userId } : {} });
 export const fetchSummary = () => api.get<UsageSummary[]>('/billing/summary');
+export const fetchPvcs = () => api.get<{ items: PvcInfo[] }>('/pvcs');
+export const cleanupPvcs = (thresholdDays = 7) =>
+  api.post('/pvcs/cleanup', null, { params: { threshold_days: thresholdDays } });
+export const deletePvc = (name: string) => api.delete(`/pvcs/${encodeURIComponent(name)}`);
 
 export default api;

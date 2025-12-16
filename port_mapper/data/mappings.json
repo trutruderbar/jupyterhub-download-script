@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "user": "joey.test",
+      "ownerKey": "joey-test",
+      "podSuffix": "22b1eeec",
+      "endpoint": "/test",
+      "port": 8000,
+      "note": null,
+      "createdAt": "2025-12-08T03:06:47.521593+00:00",
+      "updatedAt": "2025-12-08T03:06:47.521593+00:00"
+    }
+  ]
+}

@@ -31,9 +31,24 @@ _write_values_yaml(){
   local auth_mode auth_class admin_source admin_users_json allowed_users_json allowed_users_source allow_all_json allow_all_effective
   local github_allowed_orgs_json github_scopes_json azure_allowed_tenants_json azure_scopes_json
   local azure_allowed_users_json azure_login_service hub_extra_config
+  local monitor_upstream_host port_mapper_port resource_monitor_port logs_monitor_port hub_services_json
   auth_mode="${AUTH_MODE_NORMALIZED:-${AUTH_MODE,,}}"
   auth_mode="${auth_mode//[[:space:]]/}"
   hub_extra_config=""
+  monitor_upstream_host="${USER_MONITOR_UPSTREAM_HOST:-${DEFAULT_HOST_IP}}"
+  port_mapper_port="${PORT_MAPPER_PORT:-32001}"
+  resource_monitor_port="${USER_RESOURCE_MONITOR_PORT:-32002}"
+  logs_monitor_port="${USER_LOGS_MONITOR_PORT:-32003}"
+  hub_services_json="$(jq -nc \
+    --arg host "${monitor_upstream_host}" \
+    --arg pm_port "${port_mapper_port}" \
+    --arg rm_port "${resource_monitor_port}" \
+    --arg lm_port "${logs_monitor_port}" \
+    '{
+      "port-mapper": { "url": ("http://" + $host + ":" + $pm_port) },
+      "user-resource-monitor": { "url": ("http://" + $host + ":" + $rm_port) },
+      "user-logs-monitor": { "url": ("http://" + $host + ":" + $lm_port) }
+    }')"
   case "${auth_mode}" in
     "github")
       auth_mode="github"
@@ -510,6 +525,48 @@ ${usage_limit_snippet}"
     hub_extra_config="${usage_limit_snippet}"
   fi
   fi
+  if [[ "${ENABLE_MPI_OPERATOR}" == "true" ]]; then
+    local mpi_ns_prefix sa_prefix mpi_hook
+    mpi_ns_prefix="${MPI_USER_NAMESPACE_PREFIX:-mpi}"
+    sa_prefix="${MPI_USER_SERVICE_ACCOUNT_PREFIX:-jhub-mpi-sa}"
+    mpi_hook="$(cat <<PY
+sa_prefix = "${sa_prefix}"
+mpi_ns_prefix = "${mpi_ns_prefix}"
+
+def _mpi_canonical_username(raw):
+    if not raw:
+        return None
+    import re
+    name = re.sub(r'[^a-z0-9-]+', '-', str(raw).lower()).strip('-')
+    name = re.sub(r'-+', '-', name)
+    return name or None
+
+_prev_pre_spawn = c.Spawner.pre_spawn_hook
+
+async def _mpi_pre_spawn(spawner):
+    if callable(_prev_pre_spawn):
+        await _prev_pre_spawn(spawner)
+    username = getattr(spawner.user, "name", None)
+    canonical = _mpi_canonical_username(username)
+    if not canonical:
+        return
+    sa_name = f"{sa_prefix}-{canonical}"
+    spawner.service_account = sa_name
+    mpi_ns = f"{mpi_ns_prefix}-{canonical}"
+    spawner.environment = spawner.environment or {}
+    spawner.environment.setdefault("MPI_NAMESPACE", mpi_ns)
+    spawner.environment.setdefault("MPI_SERVICE_ACCOUNT", sa_name)
+
+c.Spawner.pre_spawn_hook = _mpi_pre_spawn
+PY
+)"
+    if [[ -n "${hub_extra_config}" ]]; then
+      hub_extra_config="${hub_extra_config}
+${mpi_hook}"
+    else
+      hub_extra_config="${mpi_hook}"
+    fi
+  fi
   admin_source="${ADMIN_USER}"
   if [[ -n "${ADMIN_USERS_CSV}" ]]; then
     admin_source="${ADMIN_USERS_CSV}"
@@ -539,6 +596,8 @@ ${usage_limit_snippet}"
   ingress_annotations_json="$(_parse_json_or_default "${INGRESS_ANNOTATIONS_JSON}" "{}" "INGRESS_ANNOTATIONS_JSON")"
   local shared_enabled_json ingress_enabled_json prepull_enabled_json idle_enabled_json cull_users_json named_servers_json
   shared_enabled_json="$(_bool_to_json "${SHARED_STORAGE_ENABLED}")"
+  local singleuser_readonly_rootfs_json; singleuser_readonly_rootfs_json="$(_bool_to_json "${SINGLEUSER_READONLY_ROOTFS}")"
+  local singleuser_mount_logs_json; singleuser_mount_logs_json="$(_bool_to_json "${SINGLEUSER_MOUNT_JHUB_LOGS}")"
   ingress_enabled_json="$(_bool_to_json "${ENABLE_INGRESS}")"
   prepull_enabled_json="$(_bool_to_json "${PREPULL_IMAGES}")"
   idle_enabled_json="$(_bool_to_json "${ENABLE_IDLE_CULLER}")"
@@ -625,6 +684,10 @@ ${usage_limit_snippet}"
     --arg proxy_image_digest "${proxy_image_digest}" \
     --arg proxy_image_pull_policy "${PROXY_IMAGE_PULL_POLICY}" \
     --arg pvc "${PVC_SIZE}" \
+    --arg singleuser_storage_type "${SINGLEUSER_STORAGE_TYPE}" \
+    --arg singleuser_home_mount_path "${SINGLEUSER_HOME_MOUNT_PATH}" \
+    --arg singleuser_ephemeral_request "${SINGLEUSER_EPHEMERAL_STORAGE_REQUEST}" \
+    --arg singleuser_ephemeral_limit "${SINGLEUSER_EPHEMERAL_STORAGE_LIMIT}" \
     --arg storage_class "${SINGLEUSER_STORAGE_CLASS}" \
     --arg shared_storage_mount "/workspace/storage" \
     --arg logs_mount "/var/log/jupyter" \
@@ -665,6 +728,8 @@ ${usage_limit_snippet}"
     --argjson hub_tolerations ${hub_tolerations_json} \
     --argjson ingress_annotations ${ingress_annotations_json} \
     --argjson shared_enabled ${shared_enabled_json} \
+    --argjson singleuser_readonly_rootfs ${singleuser_readonly_rootfs_json} \
+    --argjson singleuser_mount_logs ${singleuser_mount_logs_json} \
     --argjson ingress_enabled ${ingress_enabled_json} \
     --argjson prepull_enabled ${prepull_enabled_json} \
     --argjson prepull_extra ${prepull_extra_json} \
@@ -675,10 +740,11 @@ ${usage_limit_snippet}"
     --argjson cull_users ${cull_users_json} \
     --argjson named_servers ${named_servers_json} \
     --argjson named_limit ${named_limit} \
-    --arg usage_portal_url "${USAGE_PORTAL_URL}" \
-    --arg usage_portal_token "${USAGE_PORTAL_TOKEN}" \
-    --argjson usage_portal_timeout "${usage_portal_timeout}" \
-    --argjson usage_limits_enabled ${usage_limits_enabled_json} '
+	    --arg usage_portal_url "${USAGE_PORTAL_URL}" \
+	    --arg usage_portal_token "${USAGE_PORTAL_TOKEN}" \
+	    --argjson usage_portal_timeout "${usage_portal_timeout}" \
+	    --argjson usage_limits_enabled ${usage_limits_enabled_json} \
+	    --argjson hub_services "${hub_services_json}" '
 {
   "proxy": {
     "service": { 
@@ -737,25 +803,63 @@ ${usage_limit_snippet}"
       | (if ($singleuser_image_digest | length) > 0 then . + { "digest": $singleuser_image_digest } else . end)
     ),
     "storage": {
-      "dynamic": { "storageClass": $storage_class },
-      "capacity": $pvc,
-      "extraVolumes": (
-        if $shared_enabled then
-          [
-            { "name": "shared-storage", "persistentVolumeClaim": { "claimName": "storage-local-pvc" } },
-            { "name": "jhub-logs", "persistentVolumeClaim": { "claimName": "jhub-logs-pvc" } }
-          ]
-        else []
+      "type": $singleuser_storage_type,
+      "homeMountPath": $singleuser_home_mount_path,
+      "dynamic": (
+        if $singleuser_storage_type == "dynamic" then
+          { "storageClass": $storage_class }
+        else
+          {}
         end
       ),
-      "extraVolumeMounts": (
-        if $shared_enabled then
+      "capacity": (if $singleuser_storage_type == "dynamic" then $pvc else null end),
+      "extraVolumes": (
+        (if $singleuser_readonly_rootfs then
           [
-            { "name": "shared-storage", "mountPath": $shared_storage_mount, "subPathExpr": "$(JUPYTERHUB_USER)" },
-            { "name": "jhub-logs", "mountPath": $logs_mount }
+            { "name": "tmp", "emptyDir": {} },
+            { "name": "run", "emptyDir": {} }
           ]
-        else []
-        end
+        else [] end)
+        + (
+          if $shared_enabled then
+            [
+              { "name": "shared-storage", "persistentVolumeClaim": { "claimName": "storage-local-pvc" } }
+            ]
+          else []
+          end
+        )
+        + (
+          if $singleuser_mount_logs then
+            [
+              { "name": "jhub-logs", "persistentVolumeClaim": { "claimName": "jhub-logs-pvc" } }
+            ]
+          else []
+          end
+        )
+      ),
+      "extraVolumeMounts": (
+        (if $singleuser_readonly_rootfs then
+          [
+            { "name": "tmp", "mountPath": "/tmp" },
+            { "name": "run", "mountPath": "/run" }
+          ]
+        else [] end)
+        + (
+          if $shared_enabled then
+            [
+              { "name": "shared-storage", "mountPath": $shared_storage_mount, "subPathExpr": "$(JUPYTERHUB_USER)" }
+            ]
+          else []
+          end
+        )
+        + (
+          if $singleuser_mount_logs then
+            [
+              { "name": "jhub-logs", "mountPath": $logs_mount }
+            ]
+          else []
+          end
+        )
       )
     },
     "extraPodConfig": (
@@ -792,12 +896,15 @@ ${usage_limit_snippet}"
     "nodeSelector": $singleuser_node_selector,
     "extraTolerations": $singleuser_tolerations,
     "profileList": $profiles,
-    "extraEnv": {
-      "GRANT_SUDO": "yes"
-    },
+    "extraEnv": (
+      {
+        "GRANT_SUDO": "yes"
+      }
+      + (if ($singleuser_home_mount_path | length) > 0 then { "HOME": $singleuser_home_mount_path } else {} end)
+    ),
     "allowPrivilegeEscalation": true
   },
-  "hub": {
+	  "hub": {
     "image": (
       {
         "name": $hub_image_name,
@@ -813,10 +920,11 @@ ${usage_limit_snippet}"
         "storage": "1Gi"
       }
     },
-    "templatePaths": ["/usr/local/share/jupyterhub/custom_templates"],
-    "nodeSelector": $hub_node_selector,
-    "tolerations": $hub_tolerations,
-    "config": (
+	    "templatePaths": ["/usr/local/share/jupyterhub/custom_templates"],
+	    "services": $hub_services,
+	    "nodeSelector": $hub_node_selector,
+	    "tolerations": $hub_tolerations,
+	    "config": (
       {
         "JupyterHub": (
           {
@@ -850,6 +958,16 @@ ${usage_limit_snippet}"
           ]
         }
       }
+      + (if ($singleuser_ephemeral_request | length) > 0 or ($singleuser_ephemeral_limit | length) > 0 or $singleuser_readonly_rootfs then
+          {
+            "KubeSpawner": (
+              {}
+              | (if $singleuser_readonly_rootfs then . + { "container_security_context": { "readOnlyRootFilesystem": true } } else . end)
+              | (if ($singleuser_ephemeral_request | length) > 0 then . + { "extra_resource_guarantees": { "ephemeral-storage": $singleuser_ephemeral_request } } else . end)
+              | (if ($singleuser_ephemeral_limit | length) > 0 then . + { "extra_resource_limits": { "ephemeral-storage": $singleuser_ephemeral_limit } } else . end)
+            )
+          }
+        else {} end)
       + (if $auth_mode == "native" then
           {
             "NativeAuthenticator": {
@@ -1096,7 +1214,9 @@ JS
 }
 
 _install_custom_templates(){
-  local repo_template="${SCRIPT_DIR:-$(pwd)}/templates/login.html"
+  local repo_template_dir="${SCRIPT_DIR:-$(pwd)}/templates"
+  local repo_login_template="${repo_template_dir}/login.html"
+  local repo_page_template="${repo_template_dir}/page.html"
   local target_dir="${JHUB_HOME}/templates"
   local target_file="${target_dir}/login.html"
   local logo_static_path="images/jupyterhub-80.png"
@@ -1107,8 +1227,12 @@ _install_custom_templates(){
 
   mkdir -p "$target_dir"
 
-  if [[ -f "$repo_template" ]]; then
-    cp "$repo_template" "$target_file"
+  if [[ -f "${repo_page_template}" ]]; then
+    cp "${repo_page_template}" "${target_dir}/page.html"
+  fi
+
+  if [[ -f "$repo_login_template" ]]; then
+    cp "$repo_login_template" "$target_file"
   else
     cat <<'HTML' >"$target_file"
 {% extends "page.html" %}
@@ -1311,13 +1435,13 @@ HTML
   fi
 
   local -a template_args=() template_names=()
-  if compgen -G "${target_dir}/*" >/dev/null; then
+  if compgen -G "${target_dir}/*.html" >/dev/null; then
     while IFS= read -r -d '' template_file; do
       local base
       base="$(basename "${template_file}")"
       template_args+=(--from-file="${base}=${template_file}")
       template_names+=("${base}")
-    done < <(find "${target_dir}" -maxdepth 1 -type f -print0)
+    done < <(find "${target_dir}" -maxdepth 1 -type f -name '*.html' -print0)
     if ((${#template_args[@]})); then
       log "[templates] 套用自訂模板：${template_names[*]}"
       kapply_from_dryrun "${JHUB_NS}" configmap hub-templates "${template_args[@]}"
