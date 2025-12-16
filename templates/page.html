@@ -1,0 +1,328 @@
+{% macro modal(title, btn_label=None, btn_class="btn-primary") %}
+  {% set key = title.replace(' ', '-').lower() %}
+  {% set btn_label = btn_label or title %}
+  <div class="modal fade"
+       id="{{ key }}-dialog"
+       tabindex="-1"
+       role="dialog"
+       aria-labelledby="{{ key }}-label"
+       aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 class="modal-title" id="{{ key }}-label">{{ title }}</h2>
+          <button type="button"
+                  class="btn-close"
+                  data-bs-dismiss="modal"
+                  aria-label="Close"></button>
+        </div>
+        <div class="modal-body">{{ caller() }}</div>
+        <div class="modal-footer">
+          <button type="button"
+                  class="btn {{ btn_class }}"
+                  data-bs-dismiss="modal"
+                  data-dismiss="modal">{{ btn_label }}</button>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endmacro %}
+<!DOCTYPE HTML>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>
+      {%- block title -%}
+        JupyterHub
+      {%- endblock title -%}
+    </title>
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    {% block stylesheet %}
+      <link rel="stylesheet"
+            href="{{ static_url('css/style.min.css') }}"
+            type="text/css" />
+    {% endblock stylesheet %}
+    {% block favicon %}
+      <link rel="icon" href="{{ static_url('favicon.ico') }}" type="image/x-icon">
+    {% endblock favicon %}
+    {% block scripts %}
+      <script src="{{static_url("components/bootstrap/dist/js/bootstrap.bundle.min.js") }}"
+              type="text/javascript"
+              charset="utf-8"></script>
+      <script src="{{static_url("components/requirejs/require.js") }}"
+              type="text/javascript"
+              charset="utf-8"></script>
+      <script src="{{static_url("components/jquery/dist/jquery.min.js") }}"
+              type="text/javascript"
+              charset="utf-8"></script>
+      <script src="{{static_url("js/darkmode.js") }}"
+              type="text/javascript"
+              charset="utf-8"></script>
+    {% endblock scripts %}
+    {# djlint js formatting doesn't handle template blocks in js #}
+    {# djlint: off #}
+    <script type="text/javascript">
+      require.config({
+        {% if version_hash %}
+        urlArgs: "v={{version_hash}}",
+        {% endif %}
+        baseUrl: '{{static_url("js", include_version=False)}}',
+        paths: {
+          components: '../components',
+          jquery: '../components/jquery/dist/jquery.min',
+          moment: "../components/moment/moment",
+        },
+      });
+
+      window.jhdata = {
+        base_url: "{{base_url}}",
+        prefix: "{{prefix}}",
+        {% if user %}
+        {#- Autoescaping in templates is turned on in JupyterHub, #}
+        {#-  need `| safe` to prevent escaping #}
+        user: "{{ user.json_escaped_name | safe }}",
+        {% endif %}
+        {% if admin_access %}
+        admin_access: true,
+        {% else %}
+        admin_access: false,
+        {% endif %}
+        {% if not no_spawner_check and user and user.spawner.options_form %}
+        options_form: true,
+        {% else %}
+        options_form: false,
+        {% endif %}
+        xsrf_token: "{{ xsrf_token }}",
+      };
+
+</script>
+    {# djlint: on #}
+    {% block meta %}
+      <meta name="description" content="JupyterHub">
+      <meta name="keywords" content="Jupyter, JupyterHub">
+    {% endblock meta %}
+  </head>
+  <body>
+    <noscript>
+      <div id='noscript'>
+        JupyterHub requires JavaScript.
+        <br>
+        Please enable it to proceed.
+      </div>
+    </noscript>
+    {% block nav_bar %}
+      <nav class="navbar navbar-expand-sm bg-body-tertiary mb-4">
+        <div class="container-fluid">
+          {% block logo %}
+            <span id="jupyterhub-logo" class="navbar-brand">
+              <a href="{{ logo_url or base_url }}">
+                <img src='{{ base_url }}logo'
+                     alt='JupyterHub logo'
+                     class='jpy-logo'
+                     title='Home' />
+              </a>
+            </span>
+          {% endblock logo %}
+          {% if user %}
+            <button class="navbar-toggler"
+                    type="button"
+                    data-bs-toggle="collapse"
+                    data-bs-target="#thenavbar"
+                    aria-controls="thenavbar"
+                    aria-expanded="false"
+                    aria-label="Toggle navigation">
+              <span class="navbar-toggler-icon"></span>
+            </button>
+          {% endif %}
+          <div class="collapse navbar-collapse" id="thenavbar">
+            <ul class="navbar-nav me-auto mb-0">
+              {% if user %}
+                {% block nav_bar_left_items %}
+                  <li class="nav-item">
+                    <a class="nav-link" href="{{ base_url }}home">Home</a>
+                  </li>
+                  <li class="nav-item">
+                    <a class="nav-link" href="{{ base_url }}token">Token</a>
+                  </li>
+                  {% if 'admin-ui' in parsed_scopes %}
+                    <li class="nav-item">
+                      <a class="nav-link" href="{{ base_url }}admin">Admin</a>
+                    </li>
+                  {% endif %}
+                  <li class="nav-item">
+                    <a class="nav-link" href="#port-mapper" id="nav-port-mapper" role="button">Port</a>
+                  </li>
+                  <li class="nav-item">
+                    <a class="nav-link" href="#user-resource-monitor" id="nav-user-resource-monitor" role="button">Source</a>
+                  </li>
+                  <li class="nav-item">
+                    <a class="nav-link" href="#user-logs-monitor" id="nav-user-logs-monitor" role="button">Log</a>
+                  </li>
+                  <li class="nav-item">
+                    <a class="nav-link"
+                       href="https://verbena-cough-5a8.notion.site/Ubilink-JupyterHub-2c398f5f3ad780319664d2ef1ded39ab"
+                       target="_blank"
+                       rel="noopener">Doc</a>
+                  </li>
+                {% endblock nav_bar_left_items %}
+              {% endif %}
+            </ul>
+            <ul class="nav navbar-nav me-2">
+              {% block nav_bar_right_items %}
+                <li class="nav-item">
+                  {% block theme_toggle %}
+                    <button class="btn btn-sm"
+                            id="dark-theme-toggle"
+                            aria-label="Toggle dark mode"
+                            title="Toggle dark mode">
+                      <i aria-hidden="true" class="fa fa-circle-half-stroke"></i>
+                    </button>
+                  {% endblock theme_toggle %}
+                </li>
+                <li class="nav-item">
+                  {% block login_widget %}
+                    <span id="login_widget">
+                      {% if user %}
+                        <span class="me-1">{{ user.name }}</span>
+                        <a id="logout"
+                           role="button"
+                           class="btn btn-sm btn-outline-contrast"
+                           href="{{ logout_url }}"> <i aria-hidden="true" class="fa fa-sign-out"></i> Logout</a>
+                      {% else %}
+                        <a id="login"
+                           role="button"
+                           class="btn btn-sm btn-outline-contrast"
+                           href="{{ login_url }}">Login</a>
+                      {% endif %}
+                    </span>
+                  {% endblock login_widget %}
+                </li>
+              {% endblock nav_bar_right_items %}
+            </ul>
+          </div>
+          {% block header %}
+          {% endblock header %}
+        </div>
+      </nav>
+    {% endblock nav_bar %}
+    {% if user %}
+      {% set port_mapper_embed_url = port_mapper_embed_url | default('/services/port-mapper/app/?embed=1', true) %}
+      {% set port_mapper_open_url = port_mapper_open_url | default('/services/port-mapper/app/', true) %}
+      {% set resource_monitor_embed_url = resource_monitor_embed_url | default('/services/user-resource-monitor/app/?embed=1&user=' ~ (user.json_escaped_name | safe), true) %}
+      {% set resource_monitor_open_url = resource_monitor_open_url | default('/services/user-resource-monitor/app/?user=' ~ (user.json_escaped_name | safe), true) %}
+      {% set logs_monitor_embed_url = logs_monitor_embed_url | default('/services/user-logs-monitor/app/?embed=1', true) %}
+      {% set logs_monitor_open_url = logs_monitor_open_url | default('/services/user-logs-monitor/app/', true) %}
+      <div id="port-mapper-embed"
+           class="container-fluid mb-3"
+           style="display:none; max-width:1400px;">
+        <div class="card shadow-sm">
+          <div class="card-header d-flex align-items-center justify-content-between py-2">
+            <div class="fw-semibold">Port Mapper</div>
+            <div class="d-flex align-items-center gap-2">
+              <a id="port-mapper-open-new"
+                 class="link-secondary small"
+                 href="{{ port_mapper_open_url }}"
+                 target="_blank"
+                 rel="noopener">Open in new tab</a>
+              <button id="port-mapper-close"
+                      type="button"
+                      class="btn btn-sm btn-outline-secondary">Close</button>
+            </div>
+          </div>
+          <iframe id="port-mapper-frame"
+                  title="Port Mapper"
+                  style="width:100%;min-height:760px;border:0"
+                  loading="lazy"></iframe>
+        </div>
+      </div>
+      <div id="user-resource-monitor-embed"
+           class="container-fluid mb-3"
+           style="display:none; max-width:1400px;">
+        <div class="card shadow-sm">
+          <div class="card-header d-flex align-items-center justify-content-between py-2">
+            <div class="fw-semibold">User Resource Monitor</div>
+            <div class="d-flex align-items-center gap-2">
+              <a id="user-resource-monitor-open-new"
+                 class="link-secondary small"
+                 href="{{ resource_monitor_open_url }}"
+                 target="_blank"
+                 rel="noopener">Open in new tab</a>
+              <button id="user-resource-monitor-close"
+                      type="button"
+                      class="btn btn-sm btn-outline-secondary">Close</button>
+            </div>
+          </div>
+          <iframe id="user-resource-monitor-frame"
+                  title="User Resource Monitor"
+                  style="width:100%;min-height:760px;border:0"
+                  loading="lazy"></iframe>
+        </div>
+      </div>
+      <div id="user-logs-monitor-embed"
+           class="container-fluid mb-3"
+           style="display:none; max-width:1400px;">
+        <div class="card shadow-sm">
+          <div class="card-header d-flex align-items-center justify-content-between py-2">
+            <div class="fw-semibold">User Logs Monitor</div>
+            <div class="d-flex align-items-center gap-2">
+              <a id="user-logs-monitor-open-new"
+                 class="link-secondary small"
+                 href="{{ logs_monitor_open_url }}"
+                 target="_blank"
+                 rel="noopener">Open in new tab</a>
+              <button id="user-logs-monitor-close"
+                      type="button"
+                      class="btn btn-sm btn-outline-secondary">Close</button>
+            </div>
+          </div>
+          <iframe id="user-logs-monitor-frame"
+                  title="User Logs Monitor"
+                  style="width:100%;min-height:760px;border:0"
+                  loading="lazy"></iframe>
+        </div>
+      </div>
+      <script type="text/javascript">
+        (function(){
+          function setup(triggerId, panelId, frameId, closeId, embedUrl){
+            const trigger = document.getElementById(triggerId);
+            const panel = document.getElementById(panelId);
+            const frame = document.getElementById(frameId);
+            const closeBtn = document.getElementById(closeId);
+            if(!trigger || !panel || !frame){ return; }
+            const showPanel = () => {
+              if(!frame.dataset.loaded){
+                frame.src = embedUrl;
+                frame.dataset.loaded = "1";
+              }
+              panel.style.display = "block";
+              const top = panel.getBoundingClientRect().top + window.scrollY - 12;
+              window.scrollTo({ top, behavior: "smooth" });
+            };
+            trigger.addEventListener("click", (ev)=>{ ev.preventDefault(); showPanel(); });
+            if(closeBtn){
+              closeBtn.addEventListener("click", ()=> { panel.style.display = "none"; });
+            }
+          }
+          setup("nav-port-mapper","port-mapper-embed","port-mapper-frame","port-mapper-close", {{ port_mapper_embed_url | tojson | safe }});
+          setup("nav-user-resource-monitor","user-resource-monitor-embed","user-resource-monitor-frame","user-resource-monitor-close", {{ resource_monitor_embed_url | tojson | safe }});
+          setup("nav-user-logs-monitor","user-logs-monitor-embed","user-logs-monitor-frame","user-logs-monitor-close", {{ logs_monitor_embed_url | tojson | safe }});
+        })();
+      </script>
+    {% endif %}
+    {% block announcement %}
+      {% if announcement %}
+        <div class="container text-center announcement alert alert-warning">{{ announcement | safe }}</div>
+      {% endif %}
+    {% endblock announcement %}
+    {% block main %}
+    {% endblock main %}
+    {% block footer %}
+    {% endblock footer %}
+    {% call modal('Error', btn_label='OK') %}
+      <div class="ajax-error alert-danger">The error</div>
+    {% endcall %}
+    {% block script %}
+    {% endblock script %}
+  </body>
+</html>

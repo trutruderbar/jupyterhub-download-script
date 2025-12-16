@@ -31,6 +31,7 @@ MODULES=(
   "120-cuda.sh"
   "130-nodeport.sh"
   "140-diag.sh"
+  "150-mpi.sh"
 )
 
 for module in "${MODULES[@]}"; do
@@ -107,6 +108,8 @@ main(){
   # IB/GPU
   install_network_operator
   install_gpu_operator
+  install_mpi_operator
+  ensure_mpi_user_rbac
 
   if [[ "${CUSTOM_STATIC_ENABLED}" == "auto" ]]; then
     if [[ -d "${CUSTOM_STATIC_SOURCE_DIR}" ]] && compgen -G "${CUSTOM_STATIC_SOURCE_DIR}/*" >/dev/null; then

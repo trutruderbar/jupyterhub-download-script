@@ -62,6 +62,7 @@
       </header>
       <nav class="primary-tabs" id="primary-tabs">
         <button class="primary-tab active" data-section-button="users">用戶管理</button>
+        <button class="primary-tab" data-section-button="pvcs">PVC管理</button>
         <button class="primary-tab" data-section-button="machines">實體機管理</button>
         <button class="primary-tab" data-section-button="help">使用說明</button>
       </nav>
@@ -102,6 +103,45 @@
               <div id="pods-list" class="card muted">尚未選擇使用者。</div>
               <div id="pods-pagination" class="pagination"></div>
             </section>
+          </main>
+        </div>
+      </section>
+
+      <section class="portal-section" data-section="pvcs" hidden>
+        <div class="layout pvc-layout">
+          <main class="main wide">
+            <div class="card">
+              <div class="table-header pvc-header">
+                <div>
+                  <h2>PVC 管理</h2>
+                  <p class="muted small">每天自動清理建立超過 7 天的 singleuser PVC，可手動立即執行或刪除指定 PVC。</p>
+                </div>
+                <div class="table-actions pvc-actions">
+                  <input type="search" id="pvc-search" placeholder="搜尋 PVC 名稱 / SC" />
+                  <button class="btn ghost" id="pvc-refresh">重新整理</button>
+                  <button class="btn danger" id="pvc-cleanup">立即清理 &gt;7 天</button>
+                </div>
+              </div>
+              <div id="pvc-status" class="muted small" style="min-height:20px;"></div>
+              <div class="table-scroll full-width">
+                <table class="table">
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>SC</th>
+                      <th>Phase</th>
+                      <th>Capacity</th>
+                      <th>Created</th>
+                      <th>Age (days)</th>
+                      <th>操作</th>
+                    </tr>
+                  </thead>
+                  <tbody id="pvc-table">
+                    <tr><td colspan="7" class="muted">載入中…</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </main>
         </div>
       </section>

@@ -2,6 +2,9 @@ import json
 import os
 import shlex
 import subprocess
+import threading
+import time
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Optional, Tuple
 
@@ -17,6 +20,9 @@ from .config import DEFAULT_CPU_LIMIT_CORES, DEFAULT_GPU_LIMIT, DEFAULT_MEMORY_L
 from .auto_recorder import recorder_from_env
 from .database import Base, engine, get_db, SessionLocal
 from .mysql_sync import pod_report_sync_from_env
+
+PVC_MAX_AGE_DAYS = int(os.getenv("PVC_MAX_AGE_DAYS", "7"))
+PVC_JANITOR_INTERVAL_SECONDS = int(os.getenv("PVC_JANITOR_INTERVAL_SECONDS", str(24 * 3600)))
 
 
 def _ensure_user_limit_columns() -> None:
@@ -73,6 +79,80 @@ if static_dir.exists():
 
 recorder = recorder_from_env()
 pod_report_sync = pod_report_sync_from_env(SessionLocal)
+pvc_janitor = None
+
+
+class PvcJanitor:
+    def __init__(self, interval_seconds: int, max_age_days: int):
+        self.interval_seconds = interval_seconds
+        self.max_age_days = max_age_days
+        self._stop = threading.Event()
+        self._thread: Optional[threading.Thread] = None
+
+    def cleanup_once(self, max_age_days: Optional[int] = None) -> dict:
+        """Delete singleuser PVCs that have been idle (not mounted by any Pod) for max_age_days."""
+        threshold_idle_days = max_age_days or self.max_age_days
+        deleted = []
+        errors = []
+        try:
+            pvcs = jhub.list_singleuser_pvcs()
+            in_use = jhub.list_pvc_claims_in_use()
+        except Exception as exc:  # pragma: no cover - defensive
+            return {"deleted": deleted, "errors": [str(exc)], "scanned": 0}
+
+        now = datetime.now(timezone.utc)
+        for pvc in pvcs:
+            name = pvc.get("name")
+            if not name:
+                continue
+            if name in in_use:
+                try:
+                    jhub.touch_pvc_last_used(name, now=now)
+                except Exception as exc:  # pragma: no cover - best effort
+                    errors.append(f"{name}: update last-used failed: {exc}")
+                continue
+
+            annotations = pvc.get("annotations") or {}
+            last_used = jhub.parse_rfc3339(annotations.get(jhub.PVC_LAST_USED_ANNOTATION))
+            if not last_used:
+                try:
+                    # If last-used is unknown, initialize it so we only delete after
+                    # the PVC stays idle for threshold_idle_days from now on.
+                    jhub.touch_pvc_last_used(name, now=now)
+                except Exception as exc:  # pragma: no cover - best effort
+                    errors.append(f"{name}: init last-used failed: {exc}")
+                continue
+
+            idle_days = (now - last_used).total_seconds() / 86400.0
+            if idle_days < threshold_idle_days:
+                continue
+            try:
+                jhub.delete_pvc(name)
+                deleted.append(name)
+            except Exception as exc:  # pragma: no cover - defensive
+                errors.append(f"{name}: {exc}")
+        return {"deleted": deleted, "errors": errors, "scanned": len(pvcs)}
+
+    def _run_loop(self) -> None:
+        while not self._stop.wait(self.interval_seconds):
+            result = self.cleanup_once()
+            if result.get("deleted") or result.get("errors"):
+                print(f"[PVC Janitor] result={result}", flush=True)
+
+    def start(self) -> None:
+        if self._thread and self._thread.is_alive():
+            return
+        self._stop.clear()
+        self._thread = threading.Thread(target=self._run_loop, daemon=True)
+        self._thread.start()
+
+    def stop(self) -> None:
+        self._stop.set()
+        if self._thread:
+            self._thread.join(timeout=5)
+
+
+pvc_janitor = PvcJanitor(PVC_JANITOR_INTERVAL_SECONDS, PVC_MAX_AGE_DAYS)
 
 
 def _empty_usage() -> dict:
@@ -130,11 +210,15 @@ def _script_failure_hint(script_name: str, stdout: str, stderr: str) -> Optional
     return None
 
 def _canonical_username(raw: str) -> str:
-    return (raw or "").strip().replace(".", "-")
+    base = (raw or "").strip()
+    if not base:
+        return ""
+    normalized = jhub._normalize_username_for_key(base)
+    return normalized or base
 
 
 def _usage_for_user(username: str) -> Tuple[bool, dict]:
-    normalized = (username or "").strip().lower()
+    normalized = _canonical_username(username)
     if not normalized:
         return True, _empty_usage()
     try:
@@ -142,7 +226,7 @@ def _usage_for_user(username: str) -> Tuple[bool, dict]:
     except jhub.PodActionError:
         return False, _empty_usage()
     for entry in payload.get("users", []) or []:
-        entry_name = (entry.get("user") or "").lower()
+        entry_name = _canonical_username(entry.get("user") or "")
         if entry_name != normalized:
             continue
         cpu_millicores = entry.get("totalRequestedCpuMillicores") or 0.0
@@ -181,6 +265,9 @@ def _ensure_portal_user(db: Session, username: str) -> models.User:
         raise HTTPException(status_code=400, detail="Username is required")
     canonical = _canonical_username(original)
     existing = crud.get_user_by_username(db, canonical)
+    if not existing and canonical != original:
+        # Backward compatibility: accept legacy, non-canonical usernames without creating duplicates
+        existing = crud.get_user_by_username(db, original)
     if existing:
         return existing
     placeholder_email = _generate_placeholder_email(db, canonical)
@@ -191,6 +278,31 @@ def _ensure_portal_user(db: Session, username: str) -> models.User:
         department="auto-generated",
     )
     return crud.create_user(db, placeholder)
+
+
+@app.get("/pvcs")
+def list_singleuser_pvcs():
+    """List singleuser PVCs with creation time and age."""
+    try:
+        items = jhub.list_singleuser_pvcs()
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    return {"items": items}
+
+
+@app.post("/pvcs/cleanup")
+def cleanup_singleuser_pvcs(threshold_days: int = Query(PVC_MAX_AGE_DAYS, ge=1, le=365)):
+    result = pvc_janitor.cleanup_once(threshold_days)
+    return {"status": "ok", "threshold_days": threshold_days, **result}
+
+
+@app.delete("/pvcs/{name}")
+def delete_singleuser_pvc(name: str):
+    try:
+        jhub.delete_pvc(name)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    return {"status": "ok", "deleted": name}
 
 
 def require_dashboard_token(
@@ -345,13 +457,16 @@ def _collect_machine_status() -> List[schemas.MachineInfo]:
 
 @app.post("/users", response_model=schemas.UserRead)
 def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
-    existing = db.query(models.User).filter(models.User.username == user.username).first()
+    canonical = _canonical_username(user.username)
+    usernames_to_check = {canonical, user.username}
+    existing = db.query(models.User).filter(models.User.username.in_(list(usernames_to_check))).first()
     if existing:
         raise HTTPException(status_code=400, detail="Username already exists")
     existing_email = db.query(models.User).filter(models.User.email == user.email).first()
     if existing_email:
         raise HTTPException(status_code=400, detail="Email already exists")
-    return crud.create_user(db, user)
+    payload = user.model_copy(update={"username": canonical})
+    return crud.create_user(db, payload)
 
 
 @app.get("/users", response_model=List[schemas.UserRead])
@@ -516,6 +631,8 @@ def on_startup():
         recorder.start()
     if pod_report_sync:
         pod_report_sync.start()
+    if pvc_janitor:
+        pvc_janitor.start()
 
 
 @app.on_event("shutdown")
@@ -524,6 +641,8 @@ def on_shutdown():
         recorder.stop()
     if pod_report_sync:
         pod_report_sync.stop()
+    if pvc_janitor:
+        pvc_janitor.stop()
 
 
 if __name__ == "__main__":

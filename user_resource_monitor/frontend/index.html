@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>User Resource Monitor</title>
+  <style>
+    :root{
+      --bg:#f8fafc; --panel:#ffffff; --accent:#2563eb; --accent-2:#7c3aed;
+      --text:#0f172a; --muted:#64748b; --border:#e5e7eb; --ring:rgba(37,99,235,.16);
+      --ok:#10b981; --danger:#ef4444;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0; background:radial-gradient(900px 460px at 12% -10%, rgba(37,99,235,.08), transparent 60%),
+               radial-gradient(800px 420px at 110% 10%, rgba(124,58,237,.08), transparent 60%),
+               var(--bg);
+      color:var(--text);
+      font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Noto Sans,Ubuntu,Cantarell,Helvetica,Arial;
+      min-height:100dvh;
+    }
+    body.rm-dark{
+      background:radial-gradient(900px 460px at 12% -10%, rgba(59,130,246,.14), transparent 60%),
+                 radial-gradient(800px 420px at 110% 10%, rgba(124,58,237,.18), transparent 60%),
+                 #0f172a;
+      --bg:#0b1220;
+      --panel:#0f172a;
+      --accent:#60a5fa;
+      --accent-2:#7c3aed;
+      --text:#e5e7eb;
+      --muted:#cbd5e1;
+      --border:#1f2937;
+      --ring:rgba(96,165,250,.18);
+      --ok:#34d399;
+      --danger:#f87171;
+    }
+    body.embed{background:var(--bg); min-height:auto;}
+    body.embed header{display:none;}
+    body.embed .container{padding:10px 12px; margin-top:0;}
+    header{
+      position:sticky; top:0; z-index:10;
+      display:flex; align-items:center; justify-content:space-between;
+      padding:12px 16px; background:#fff; border-bottom:1px solid var(--border);
+      box-shadow:0 12px 24px rgba(2,6,23,.04);
+    }
+    .brand{font-weight:800; letter-spacing:.3px}
+    .btn{display:inline-flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--border);border-radius:10px;background:#fff;cursor:pointer;font-weight:600}
+    .btn:hover{box-shadow:0 8px 16px rgba(2,6,23,.08)}
+    .container{padding:14px; max-width:1400px; margin:0 auto; display:grid; gap:14px}
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+    .card{background:var(--panel);border:1px solid var(--border);border-radius:14px;box-shadow:0 8px 22px rgba(2,6,23,.06);padding:14px}
+    .card h2{margin:0 0 8px;font-size:15px;letter-spacing:.3px}
+    .muted{color:var(--muted)}
+    table{width:100%;border-collapse:collapse;font-size:13px}
+    th,td{padding:10px 8px;border-bottom:1px solid var(--border);text-align:left;vertical-align:middle}
+    .pill{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border-radius:999px;border:1px solid var(--border);background:#fff;font-size:12px;color:var(--muted)}
+    .status{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border-radius:999px;border:1px solid var(--border);font-size:12px}
+    .status.ok{border-color:rgba(16,185,129,.4);color:var(--ok);background:rgba(16,185,129,.08)}
+    .status.bad{border-color:rgba(239,68,68,.4);color:var(--danger);background:rgba(239,68,68,.08)}
+    .split{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+    .chart-wrap{position:relative;height:220px}
+    .bar-wrap{position:relative;height:260px}
+  </style>
+  <script src="static/chart.umd.min.js"></script>
+</head>
+<body>
+  <header>
+    <div class="brand">User Resource Monitor</div>
+    <div class="muted" id="updatedAt">—</div>
+  </header>
+
+  <div class="container">
+    <div class="grid">
+      <div class="card">
+        <div class="split">
+          <h2>CPU Usage</h2>
+          <div class="muted" id="cpuText">—</div>
+        </div>
+        <div class="chart-wrap"><canvas id="cpuPie"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="split">
+          <h2>Memory Usage</h2>
+          <div class="muted" id="memText">—</div>
+        </div>
+        <div class="chart-wrap"><canvas id="memPie"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="split">
+          <h2>GPU Allocation</h2>
+          <div class="muted" id="gpuText">—</div>
+        </div>
+        <div class="chart-wrap"><canvas id="gpuPie"></canvas></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="split">
+        <h2>Pods Usage (per server)</h2>
+        <button class="btn" id="btnRefresh">Refresh</button>
+      </div>
+      <div class="bar-wrap"><canvas id="podBar"></canvas></div>
+    </div>
+
+    <div class="card">
+      <div class="split" style="margin-bottom:6px">
+        <h2>Your Pods</h2>
+        <div class="muted" id="metricsHint"></div>
+      </div>
+      <div style="overflow:auto">
+        <table>
+          <thead>
+            <tr>
+              <th>Pod</th><th>Profile</th><th>Status</th><th>CPU (use / req / lim)</th><th>Mem (use / req / lim)</th><th>GPU (req / lim)</th><th>Age</th>
+            </tr>
+          </thead>
+          <tbody id="podsBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const PREFIX = (() => {
+      const match = window.location.pathname.match(/(.*)\/app(\/|$)/);
+      return match ? match[1] : "";
+    })();
+    const joinPath = (base, path) => {
+      if (!path.startsWith("/")) path = "/" + path;
+      const cleaned = base.endsWith("/") && base !== "/" ? base.slice(0, -1) : base;
+      return `${cleaned}${path}`;
+    };
+    const API_BASE = joinPath(PREFIX || "", "/api");
+    const EMBED_MODE = new URLSearchParams(window.location.search).has("embed");
+    const HUB_USER = (() => {
+      try {
+        const parentData = window.parent && window.parent.jhdata;
+        if (parentData && parentData.user) return parentData.user;
+      } catch(_) {}
+      const qs = new URLSearchParams(window.location.search);
+      const qUser = qs.get("user") || qs.get("username") || qs.get("amp;user") || qs.get("amp;username");
+      if (qUser) return qUser;
+      const m = document.cookie.match(/(?:^|;\\s*)username=([^;]+)/);
+      if (m) { try { return decodeURIComponent(m[1]); } catch(_) { return m[1]; } }
+      return null;
+    })();
+
+    if (EMBED_MODE) document.body.classList.add("embed");
+
+    let cpuPie, memPie, gpuPie, podBar;
+
+    function detectTheme(){
+      const attr = (document.documentElement.getAttribute("data-bs-theme") || "").toLowerCase();
+      if(attr.includes("dark")) return "dark";
+      const cls = document.body.classList;
+      if(cls.contains("dark-mode") || cls.contains("theme-dark")) return "dark";
+      return "light";
+    }
+    function applyTheme(){
+      document.body.classList.toggle("rm-dark", detectTheme()==="dark");
+      updateChartTheme();
+    }
+    const themeObserver = new MutationObserver(applyTheme);
+    themeObserver.observe(document.documentElement, {attributes:true, attributeFilter:["data-bs-theme","class"]});
+    themeObserver.observe(document.body, {attributes:true, attributeFilter:["class"]});
+    applyTheme();
+
+    async function api(path){
+      const headers = {};
+      if (HUB_USER) headers["x-jupyterhub-user"] = HUB_USER;
+      const url = path.startsWith("http") ? path : joinPath(API_BASE, path.replace(/^\/api/,""));
+      const res = await fetch(url, {cache:"no-store", credentials:"include", headers});
+      const txt = await res.text();
+      let data={}; try{ data = txt?JSON.parse(txt):{} }catch{}
+      if(!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);
+      return data;
+    }
+
+    const fmtCores = m => (m/1000).toFixed(2);
+    const fmtGiB = mib => (mib/1024).toFixed(2);
+    const fmtAge = s => {
+      if(!s && s!==0) return "—";
+      const h = Math.floor(s/3600), m=Math.floor((s%3600)/60);
+      return `${h}h ${m}m`;
+    };
+
+    function makePie(canvas, label){
+      return new Chart(canvas, {
+        type:"doughnut",
+        data:{labels:["Used","Remaining"], datasets:[{label, data:[0,1], backgroundColor:["#2563eb","#e5e7eb"]}]},
+        options:{responsive:true, plugins:{legend:{position:"bottom"}}}
+      });
+    }
+    function makeGpuPie(canvas){
+      return new Chart(canvas, {
+        type:"doughnut",
+        data:{labels:["Requested","Free"], datasets:[{data:[0,1], backgroundColor:["#7c3aed","#e5e7eb"]}]},
+        options:{responsive:true, plugins:{legend:{position:"bottom"}}}
+      });
+    }
+    function makeBar(canvas){
+      return new Chart(canvas, {
+        type:"bar",
+        data:{labels:[], datasets:[
+          {label:"CPU requested (cores)", data:[], backgroundColor:"#2563eb"},
+          {label:"Memory requested (GiB)", data:[], backgroundColor:"#7c3aed"}
+        ]},
+        options:{responsive:true, scales:{y:{beginAtZero:true}}, plugins:{legend:{position:"bottom"}}}
+      });
+    }
+
+    function updateChartTheme(){
+      const dark = document.body.classList.contains("rm-dark");
+      const gridColor = dark ? "rgba(226,232,240,.15)" : "rgba(15,23,42,.12)";
+      const textColor = dark ? "#e5e7eb" : "#0f172a";
+      [cpuPie, memPie, gpuPie, podBar].forEach(ch=>{
+        if(!ch) return;
+        ch.options.color = textColor;
+        if(ch.options.scales){
+          Object.values(ch.options.scales).forEach(s=>{
+            s.ticks = s.ticks || {}; s.ticks.color=textColor;
+            s.grid = s.grid || {}; s.grid.color=gridColor;
+          });
+        }
+        ch.update("none");
+      });
+    }
+
+    async function refresh(){
+      const data = await api("/api/resources");
+      document.getElementById("updatedAt").textContent = `Updated: ${data.updatedAt || "—"}`;
+      document.getElementById("metricsHint").textContent = data.metricsAvailable ? "" : "Metrics-server unavailable, usage may be 0.";
+
+      const r=data.requests||{}, l=data.limits||{}, cap=data.clusterCapacity||{};
+      // Show requested resources as "used", compare to cluster capacity (fallback to user limits).
+      const cpuReq = r.cpuMillicores||0;
+      const cpuCap = cap.cpuMillicores ?? l.cpuMillicores ?? 0;
+      const memReq = r.memoryMiB||0;
+      const memCap = cap.memoryMiB ?? l.memoryMiB ?? 0;
+      const gpuReq = r.gpu||0;
+      const gpuCap = cap.gpu ?? l.gpu ?? 0;
+
+      document.getElementById("cpuText").textContent = `${fmtCores(cpuReq)} / ${fmtCores(cpuCap)} cores`;
+      document.getElementById("memText").textContent = `${fmtGiB(memReq)} / ${fmtGiB(memCap)} GiB`;
+      document.getElementById("gpuText").textContent = `${gpuReq} / ${gpuCap} GPUs`;
+
+      if(!cpuPie){ cpuPie = makePie(document.getElementById("cpuPie"),"CPU"); }
+      if(!memPie){ memPie = makePie(document.getElementById("memPie"),"Memory"); }
+      if(!gpuPie){ gpuPie = makeGpuPie(document.getElementById("gpuPie")); }
+      cpuPie.data.datasets[0].data = [cpuReq, Math.max(cpuCap-cpuReq,0)];
+      memPie.data.datasets[0].data = [memReq, Math.max(memCap-memReq,0)];
+      gpuPie.data.datasets[0].data = [gpuReq, Math.max(gpuCap-gpuReq,0)];
+      cpuPie.update(); memPie.update(); gpuPie.update();
+
+      const pods = data.pods || [];
+      const body = document.getElementById("podsBody");
+      body.innerHTML = "";
+      pods.forEach(p=>{
+        const tr=document.createElement("tr");
+        const st=p.phase||"Unknown";
+        const stCls=st==="Running"?"ok":"bad";
+        const useCpu=p.usage?.cpuMillicores||0, reqCpu=p.requests?.cpuMillicores||0, limCpu=p.limits?.cpuMillicores||reqCpu||0;
+        const useMem=p.usage?.memoryMiB||0, reqMem=p.requests?.memoryMiB||0, limMem=p.limits?.memoryMiB||reqMem||0;
+        const reqGpu=p.requests?.gpuCount||0, limGpu=p.limits?.gpuCount||reqGpu||0;
+        const fmt=p.resourceFormat||{};
+        const fmtLabel=fmt.label||fmt.slug||"—";
+        tr.innerHTML = `
+          <td><div style="font-weight:700">${p.serverName||p.name}</div><div class="muted">${p.name}</div></td>
+          <td><span class="pill">${fmtLabel}</span></td>
+          <td><span class="status ${stCls}">${st}</span></td>
+          <td>${fmtCores(useCpu)} / ${fmtCores(reqCpu)} / ${fmtCores(limCpu)}</td>
+          <td>${fmtGiB(useMem)} / ${fmtGiB(reqMem)} / ${fmtGiB(limMem)}</td>
+          <td>${reqGpu} / ${limGpu}</td>
+          <td>${fmtAge(p.ageSeconds)}</td>
+        `;
+        body.appendChild(tr);
+      });
+      if(!podBar){ podBar = makeBar(document.getElementById("podBar")); }
+      podBar.data.labels = pods.map(p=>p.serverName||p.name);
+      // Request-based bars (since metrics may be unavailable).
+      podBar.data.datasets[0].data = pods.map(p=>(p.requests?.cpuMillicores||0)/1000);
+      podBar.data.datasets[1].data = pods.map(p=>(p.requests?.memoryMiB||0)/1024);
+      podBar.update();
+      updateChartTheme();
+    }
+
+    function handleError(err){
+      const msg = (err && err.message) ? err.message : String(err || "");
+      console.error(err);
+      // Ignore noisy Chart.js/observer recursion errors in embed mode.
+      if (msg.includes("Maximum call stack")) return;
+      alert(msg);
+    }
+
+    document.getElementById("btnRefresh").onclick = ()=> refresh().catch(handleError);
+    refresh().catch(handleError);
+  </script>
+</body>
+</html>

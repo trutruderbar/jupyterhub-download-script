@@ -1,0 +1,71 @@
+# 環境變數與密鑰
+*.env
+!.env.example
+jhub.env
+!jhub.env.example
+id_rsa
+id_rsa.pub
+*.pem
+*.key
+*.crt
+
+# 憑證目錄
+certs/
+
+# 離線映像檔（檔案過大）
+offline-images/
+*.tar
+*.tar.gz
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+ENV/
+env/
+*.egg-info/
+dist/
+build/
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# 日誌檔案
+*.log
+*_log.txt
+
+# 資料庫
+*.db
+*.sqlite
+*.sqlite3
+
+# 備份資料夾
+port_mapper_backup_*/
+*_backup_*/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Kubernetes 相關
+values.yaml
+*.kubeconfig
+
+# 臨時檔案
+*.tmp
+tmp/
+temp/

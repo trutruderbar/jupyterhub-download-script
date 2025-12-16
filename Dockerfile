@@ -1,6 +1,8 @@
-# 改用可自由重新分發的公開基底映像，避免 foreign layer 造成 docker save 後仍需連線 nvcr.io。
-# pytorch/pytorch 已內建 Python 與 CUDA 12.1/cudnn9，相容 535+ 驅動，亦適用 MicroK8s。
-FROM pytorch/pytorch:2.4.0-cuda12.1-cudnn9-runtime
+# syntax=docker/dockerfile:1.4
+
+# 基底：CUDA 12.4.1 + cuDNN（devel 版含本機 CUDA Toolkit / nvcc）
+# 宿主機 driver=580.95.05（nvidia-smi 顯示 CUDA 13.0）對 CUDA 12.4 具備向下相容。
+FROM nvidia/cuda:12.4.1-cudnn-devel-ubuntu22.04
 
 ARG DEBIAN_FRONTEND=noninteractive
 
@@ -20,12 +22,19 @@ ENV PIP_INDEX_URL=https://pypi.org/simple \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
+# ── Miniconda（取代較大的 Anaconda base；/opt/conda 與原流程相容） ────────
+ARG MINICONDA_INSTALLER=Miniconda3-py311_25.5.1-0-Linux-x86_64.sh
+ARG MINICONDA_SHA256=a921abd74e16f5dee8a4d79b124635fac9b939c465ba2e942ea61b3fcd1451d8
+ENV CONDA_DIR=/opt/conda
+ENV PATH=${CONDA_DIR}/bin:${PATH}
+
 # ── 系統工具 + 桌面/語言依賴（含 Desktop 必備依賴） ──────────────────────
 RUN ln -fs /usr/share/zoneinfo/Etc/UTC /etc/localtime \
   && echo "Etc/UTC" > /etc/timezone \
   && apt-get update \
   && apt-get install -y --no-install-recommends \
-      git curl wget ca-certificates tzdata unzip xz-utils \
+      git curl wget ca-certificates gnupg tzdata unzip xz-utils \
+      bzip2 \
       build-essential pkg-config cmake \
       pciutils iproute2 rdma-core ibverbs-providers ibverbs-utils perftest infiniband-diags tini \
       sudo tmux htop less vim nano locales \
@@ -52,13 +61,55 @@ RUN ln -fs /usr/share/zoneinfo/Etc/UTC /etc/localtime \
   && dpkg-reconfigure -f noninteractive tzdata \
   && rm -rf /var/lib/apt/lists/*
 
+# ── 安裝 Miniconda ──────────────────────────────────────────────────────
+RUN set -eux; \
+    wget -qO /tmp/miniconda.sh "https://repo.anaconda.com/miniconda/${MINICONDA_INSTALLER}"; \
+    echo "${MINICONDA_SHA256}  /tmp/miniconda.sh" | sha256sum -c -; \
+    bash /tmp/miniconda.sh -b -p "${CONDA_DIR}"; \
+    rm -f /tmp/miniconda.sh; \
+    "${CONDA_DIR}/bin/conda" config --system --set auto_update_conda false; \
+    "${CONDA_DIR}/bin/conda" config --system --set show_channel_urls true; \
+    "${CONDA_DIR}/bin/conda" clean -afy
+
+# ── CUDA Toolkit / nvcc（由 nvidia/cuda:*cudnn-devel 提供；建置時檢查） ───
+RUN nvcc --version
+
+# ── NCCL（官方套件庫；固定選 CUDA 12.4 版本） ────────────────────────────
+ARG NCCL_VERSION=2.27.7-1+cuda12.4
+RUN set -eux; \
+    : "nvidia/cuda base images 通常已內建 CUDA APT repo + keyring（cuda-archive-keyring.gpg）。"; \
+    : "若再次新增同一個 repo 但 signed-by 不同，apt 會報錯：Conflicting values set for option Signed-By。"; \
+    cuda_repo="https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/"; \
+    if ! grep -Rqs "${cuda_repo}" /etc/apt/sources.list /etc/apt/sources.list.d/ 2>/dev/null; then \
+      mkdir -p /usr/share/keyrings; \
+      if [ ! -f /usr/share/keyrings/cuda-archive-keyring.gpg ]; then \
+        curl -fsSL "${cuda_repo}3bf863cc.pub" | gpg --dearmor -o /usr/share/keyrings/cuda-archive-keyring.gpg; \
+      fi; \
+      echo "deb [signed-by=/usr/share/keyrings/cuda-archive-keyring.gpg] ${cuda_repo} /" > /etc/apt/sources.list.d/cuda-ubuntu2204.list; \
+    fi; \
+    apt-get update; \
+    # nvidia/cuda images 可能會把部分 CUDA/NCCL 套件設為 hold；這裡允許變更 held packages 以固定版本安裝。 \
+    apt-mark unhold libnccl2 libnccl-dev >/dev/null 2>&1 || true; \
+    apt-get install -y --no-install-recommends --allow-change-held-packages \
+      "libnccl2=${NCCL_VERSION}" \
+      "libnccl-dev=${NCCL_VERSION}"; \
+    rm -rf /var/lib/apt/lists/*
+
 # noVNC 靜態檔路徑（jupyter-remote-desktop-proxy 會使用）
 ENV NOVNC_PATH=/usr/share/novnc \
     BROWSER=/usr/bin/falkon
 
 # （更穩）安裝較新的 websockify，避免舊版相容性問題
 RUN --mount=type=cache,target=/root/.cache/pip \
+    python -m pip install --upgrade pip setuptools wheel && \
     pip install --no-cache-dir --prefer-binary "websockify==0.11.*"
+
+# ── PyTorch（對齊 CUDA 12.4；避免 runtime/toolkit/NCCL 版本混搭） ─────────
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install --no-cache-dir --prefer-binary --retries 10 --timeout 60 \
+      --index-url https://download.pytorch.org/whl/cu124 \
+      "torch==2.4.0+cu124" "torchvision==0.19.0+cu124" "torchaudio==2.4.0+cu124" \
+    && python -c "import torch; print('torch', torch.__version__, 'cuda', torch.version.cuda)"
 
 # ── 建立/對齊非 root 使用者（與 JupyterHub 預設對齊） ───────────────────
 ENV NB_USER=jovyan \
@@ -78,9 +129,9 @@ RUN set -eux; \
         mkdir -p "${HOME}/.local" "${HOME}/work"; \
         chown -R ${NB_UID}:${NB_GID} "${HOME}"; \
     fi; \
-    chgrp -R ${NB_GID} /opt/conda || true; \
-    chmod -R g+rwX /opt/conda || true; \
-    find /opt/conda -type d -exec chmod g+s {} \; || true; \
+    chgrp -R ${NB_GID} "${CONDA_DIR}" || true; \
+    chmod -R g+rwX "${CONDA_DIR}" || true; \
+    find "${CONDA_DIR}" -type d -exec chmod g+s {} \; || true; \
     if getent group sudo >/dev/null 2>&1; then usermod -aG sudo ${NB_USER}; else groupadd -r sudo && usermod -aG sudo ${NB_USER}; fi; \
     mkdir -p /etc/sudoers.d; \
     echo "${NB_USER} ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/${NB_USER}; \
@@ -107,7 +158,6 @@ RUN --mount=type=cache,target=/root/.cache/pip \
       lckr-jupyterlab-variableinspector jupyterlab_execute_time \
       ipywidgets "plotly==5.*" jupyterlab-drawio \
       jupyterlab_vim jupyterlab_myst \
-      jupyter-server-proxy jupyter-codeserver-proxy jupyter-tensorboard-proxy tensorboard \
       dask[complete] dask-labextension \
       voila panel altair vega_datasets \
       jupysql duckdb duckdb-engine sqlalchemy psycopg2-binary pymysql \
@@ -127,7 +177,6 @@ RUN --mount=type=cache,target=/root/.cache/pip \
     python -m pip install --no-cache-dir --only-binary=:all: "PyYAML>=6.0" && \
     python -m pip install --no-cache-dir --prefer-binary elyra
 
-# syntax=docker/dockerfile:1.4
 # ── Lab 擴充：資源用量（狀態列顯示） ───────────────────────────────────────
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip install --no-cache-dir --prefer-binary --retries 10 --timeout 60 \
@@ -137,7 +186,10 @@ RUN --mount=type=cache,target=/root/.cache/pip \
     cat > /etc/jupyter/jupyter_server_config.d/resource-usage.json <<'JSON'
 {
   "ResourceUseDisplay": {
-    "track_cpu_percent": true
+    "track_cpu_percent": true,
+    "track_disk_usage": true,
+    "disk_path": "/",
+    "disk_warning_threshold": 0.1
   }
 }
 JSON
@@ -159,9 +211,31 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip install --no-cache-dir --prefer-binary jupyter-remote-desktop-proxy
 
-# ── Code-Server（VS Code in Launcher；可選） ─────────────────────────────
+# ── VS Code（瀏覽器版：code-server + jupyter-server-proxy） ──────────────
 RUN (curl -fsSL https://code-server.dev/install.sh | sh && \
      command -v code-server && echo '[OK] code-server installed') || echo '[WARN] code-server skipped'
+#
+# Fix: code-server 的 webview pre/index.html CSP 缺少 worker-src/child-src，
+# 會導致 webview 無法註冊 service worker（Error loading webview / CSP violation）。
+RUN set -eux; \
+    pre_index="/usr/lib/code-server/lib/vscode/out/vs/workbench/contrib/webview/browser/pre/index.html"; \
+    if [ -f "${pre_index}" ]; then \
+      if ! grep -q "worker-src" "${pre_index}"; then \
+        sed -i "s/default-src 'none';/default-src 'none'; worker-src 'self' blob:; child-src 'self' blob:;/" "${pre_index}"; \
+      fi; \
+    else \
+      echo "[WARN] code-server pre/index.html not found, skipping CSP patch (${pre_index})"; \
+    fi
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install --no-cache-dir --prefer-binary --retries 10 --timeout 60 \
+      "jupyter-server-proxy==4.4.0" \
+      "jupyter-codeserver-proxy==0.1.0" \
+      jupyter-tensorboard-proxy tensorboard \
+    && python -c "import jupyter_server_proxy, jupyter_codeserver_proxy" \
+    && jupyter server extension enable --sys-prefix jupyter_server_proxy
+
+# 避免全域設定把 Launcher 鎖掉（會看不到 proxy launcher entry）
+RUN rm -f "${CONDA_DIR}/etc/jupyter/labconfig/page_config.json" || true
 
 # ── R Kernel（IRkernel + 常用套件） ──────────────────────────────────────
 RUN R -q -e "install.packages(c('IRkernel','tidyverse','data.table','arrow','DBI','duckdb','Rcpp'), repos='https://cloud.r-project.org')" \
@@ -336,6 +410,13 @@ echo "[startup] Starting JupyterHub singleuser server..."
 exec jupyterhub-singleuser --ip=0.0.0.0 --port=8888 "$@"
 EOF
 RUN chmod +x /usr/local/bin/start-singleuser.sh
+
+# ── 修正 HOME 權限（建置期間以 root 執行 jupyter/npm/go 等可能寫入 $HOME，導致 /home/jovyan 內出現 root-owned 目錄，進而讓單人伺服器無法建立 runtime dir 而 CrashLoopBackOff） ──
+RUN set -eux; \
+    mkdir -p "${HOME}/.local/share/jupyter/runtime"; \
+    chown -R "${NB_UID}:${NB_GID}" "${HOME}"; \
+    chmod -R g+rwX "${HOME}" || true; \
+    find "${HOME}" -type d -exec chmod g+s {} \; || true
 
 EXPOSE 8888
 

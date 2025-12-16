@@ -14,6 +14,7 @@ from .timeutils import ensure_naive_local, naive_now_local, LOCAL_TZ
 
 
 GPU_RATE_PER_HOUR = float(os.getenv("GPU_RATE_PER_HOUR", "4"))
+PVC_LAST_USED_TOUCH_INTERVAL_SECONDS = int(os.getenv("PVC_LAST_USED_TOUCH_INTERVAL_SECONDS", "3600"))
 
 
 def _parse_time(value: Optional[str]) -> Optional[datetime]:
@@ -40,6 +41,7 @@ class UsageAutoRecorder:
         self.interval_seconds = max(5, interval_seconds)
         self._stop_event = threading.Event()
         self._thread: Optional[threading.Thread] = None
+        self._pvc_last_used_cache: Dict[str, float] = {}
 
     def start(self) -> None:
         if self._thread and self._thread.is_alive():
@@ -67,6 +69,7 @@ class UsageAutoRecorder:
     def _sync_once(self) -> None:
         payload = jhub.collect_usage_payload()
         pods = payload.get("pods", [])
+        self._touch_active_pvcs(pods)
         active_names = {pod.get("podName") for pod in pods if pod.get("podName")}
         db: Session = SessionLocal()
         try:
@@ -76,6 +79,27 @@ class UsageAutoRecorder:
             db.commit()
         finally:
             db.close()
+
+    def _touch_active_pvcs(self, pods: list) -> None:
+        if PVC_LAST_USED_TOUCH_INTERVAL_SECONDS <= 0:
+            return
+        now_mono = time.monotonic()
+        claim_names = set()
+        for pod in pods:
+            for vol in (pod.get("volumes") or []):
+                claim = vol.get("claimName")
+                if claim and claim.startswith(jhub.SINGLEUSER_PVC_PREFIX):
+                    claim_names.add(claim)
+
+        for claim in claim_names:
+            last_touched = self._pvc_last_used_cache.get(claim)
+            if last_touched is not None and (now_mono - last_touched) < PVC_LAST_USED_TOUCH_INTERVAL_SECONDS:
+                continue
+            try:
+                jhub.touch_pvc_last_used(claim)
+                self._pvc_last_used_cache[claim] = now_mono
+            except Exception as exc:  # pragma: no cover - best effort
+                print(f"[usage-auto] touch pvc last-used failed: {claim}: {exc}", flush=True)
 
     def _ensure_session(self, db: Session, pod: Dict) -> None:
         pod_name = pod.get("podName")

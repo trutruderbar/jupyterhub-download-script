@@ -30,7 +30,13 @@ fi
 # Singleuser Notebook 映像（建議先用你已擴充的離線鏡像）
 : "${SINGLEUSER_IMAGE:=myorg3/pytorch-jhub:24.10}"
 : "${SINGLEUSER_IMAGE_PULL_POLICY:=IfNotPresent}"
+: "${SINGLEUSER_STORAGE_TYPE:=dynamic}" # dynamic | static | none（none=不掛 home PVC，建議搭配 /workspace/storage 供持久化）
 : "${PVC_SIZE:=20Gi}"
+: "${SINGLEUSER_HOME_MOUNT_PATH:=/home/jovyan}" # 使用者 PVC 掛載點（若要只允許寫 /workspace，可改 /workspace）
+: "${SINGLEUSER_READONLY_ROOTFS:=false}"        # true: root filesystem 設為唯讀（sudo 也無法寫入 image layer）
+: "${SINGLEUSER_MOUNT_JHUB_LOGS:=true}"         # true: 仍掛載 /var/log/jupyterhub → /var/log/jupyter（使用者有 sudo 時建議關閉）
+: "${SINGLEUSER_EPHEMERAL_STORAGE_REQUEST:=}"  # 例如 2Gi（留空則不設定）
+: "${SINGLEUSER_EPHEMERAL_STORAGE_LIMIT:=}"    # 例如 10Gi（留空則不設定；超過會被 kubelet evict）
 : "${SINGLEUSER_STORAGE_CLASS:=microk8s-hostpath}"
 : "${SHARED_STORAGE_ENABLED:=true}"
 : "${SHARED_STORAGE_SIZE:=1Ti}"
@@ -69,6 +75,21 @@ fi
 : "${IB_RESOURCE_NAME:=rdma/rdma_shared_device}"  # 配合 rdmaSharedDevicePlugin 的 resourceName
 : "${IB_RESOURCE_COUNT:=1}"                        # 每個 Pod 預設要的 RDMA device 數量（GPU/MIG profile 用）
 : "${JHUB_FRAME_ANCESTORS:=http://${DEFAULT_HOST_IP} http://localhost:8080}"
+
+: "${ENABLE_MPI_OPERATOR:=false}"                  # true 則安裝 Kubeflow MPI Operator
+: "${MPI_OPERATOR_NAMESPACE:=mpi-operator}"
+: "${MPI_OPERATOR_VERSION:=}"                      # 留空使用 chart 預設版本
+: "${ENABLE_MPI_USER_NS:=true}"                    # true 則為使用者建立獨立命名空間/RBAC/配額
+: "${MPI_USERS_CSV:=}"                             # 預設 fallback 取 ADMIN_USERS_CSV/ADMIN_USER
+: "${MPI_USER_NAMESPACE_PREFIX:=mpi}"
+: "${MPI_USER_SERVICE_ACCOUNT_PREFIX:=jhub-mpi-sa}"
+: "${MPI_NS_REQUESTS_CPU:=64}"
+: "${MPI_NS_REQUESTS_MEMORY:=256Gi}"
+: "${MPI_NS_LIMITS_CPU:=64}"
+: "${MPI_NS_LIMITS_MEMORY:=256Gi}"
+: "${MPI_NS_GPUS:=8}"
+: "${MPI_NS_PODS:=32}"
+: "${MPI_OPERATOR_MANIFEST_URL:=https://raw.githubusercontent.com/kubeflow/mpi-operator/v0.4.0/deploy/v2beta1/mpi-operator.yaml}"
 
 # Ingress / TLS
 : "${ENABLE_INGRESS:=false}"
