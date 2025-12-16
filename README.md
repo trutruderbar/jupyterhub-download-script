@@ -330,10 +330,6 @@ A: 在 `usage_monitoring/.env` 中設定 `DASHBOARD_TOKEN=your_secret_token`。
 - **Python**：3.11（Miniconda）
 - **MicroK8s**：依系統自動選擇 stable channel
 
-## 授權
-
-請依您的組織政策設定授權條款。
-
 ## 貢獻
 
 歡迎提交 Issue 或 Pull Request 改進專案！
