@@ -303,7 +303,12 @@ _MEM_SUFFIX = {
 
 
 def _canonical_username(value):
-    return (value or "").replace(".", "-")
+    import re
+    if not value:
+        return None
+    name = re.sub(r'[^a-z0-9-]+', '-', str(value).lower()).strip('-')
+    name = re.sub(r'-+', '-', name)
+    return name or None
 
 
 def _parse_cpu_cores(value):
@@ -359,12 +364,21 @@ def _slugify(value):
     return slug or (value or "")
 
 
-def _profile_override(spawner):
+async def _profile_override(spawner):
+    import inspect
     user_options = getattr(spawner, "user_options", {}) or {}
     profile_slug = user_options.get("profile")
     if not profile_slug:
         return None
-    profiles = getattr(spawner, "profile_list", []) or []
+    profile_list = getattr(spawner, "profile_list", []) or []
+    # Handle callable profile_list (dynamic profiles)
+    if callable(profile_list):
+        if inspect.iscoroutinefunction(profile_list):
+            profiles = await profile_list(spawner)
+        else:
+            profiles = profile_list(spawner)
+    else:
+        profiles = profile_list
     for profile in profiles:
         slug = profile.get("slug") or _slugify(profile.get("display_name"))
         if slug == profile_slug or profile.get("display_name") == profile_slug:
@@ -372,25 +386,25 @@ def _profile_override(spawner):
     return None
 
 
-def _requested_cpu(spawner):
+async def _requested_cpu(spawner):
     cpu = _parse_cpu_cores(getattr(spawner, "cpu_limit", None) or getattr(spawner, "cpu_guarantee", None))
     if cpu <= 0:
-        override = _profile_override(spawner)
+        override = await _profile_override(spawner)
         if override:
             cpu = _parse_cpu_cores(override.get("cpu_limit") or override.get("cpu_guarantee"))
     return cpu
 
 
-def _requested_memory(spawner):
+async def _requested_memory(spawner):
     memory = _parse_mem_gib(getattr(spawner, "mem_limit", None) or getattr(spawner, "mem_guarantee", None))
     if memory <= 0:
-        override = _profile_override(spawner)
+        override = await _profile_override(spawner)
         if override:
             memory = _parse_mem_gib(override.get("mem_limit") or override.get("mem_guarantee"))
     return memory
 
 
-def _requested_gpu(spawner):
+async def _requested_gpu(spawner):
     for attr in ("extra_resource_limits", "extra_resource_guarantees"):
         resources = getattr(spawner, attr, None) or {}
         if hasattr(resources, "items"):
@@ -405,7 +419,7 @@ def _requested_gpu(spawner):
                         return value
                 except (TypeError, ValueError):
                     continue
-    override = _profile_override(spawner)
+    override = await _profile_override(spawner)
     if override:
         for attr in ("extra_resource_limits", "extra_resource_guarantees"):
             resources = override.get(attr) or {}
@@ -484,9 +498,9 @@ async def _enforce_portal_limits(spawner):
     current_cpu = _safe_float(usage.get("cpu_cores")) if usage_available else None
     current_memory = _safe_float(usage.get("memory_gib")) if usage_available else None
     current_gpu = _safe_float(usage.get("gpu")) if usage_available else None
-    requested_cpu = _requested_cpu(spawner)
-    requested_memory = _requested_memory(spawner)
-    requested_gpu = _requested_gpu(spawner)
+    requested_cpu = await _requested_cpu(spawner)
+    requested_memory = await _requested_memory(spawner)
+    requested_gpu = await _requested_gpu(spawner)
 
     _LOG.warning(
         "usage-limit check user=%s canonical=%s req_cpu=%.3f req_mem=%.3fGi req_gpu=%.3f cur_cpu=%s cur_mem=%s cur_gpu=%s lim_cpu=%s lim_mem=%s lim_gpu=%s",
@@ -516,6 +530,78 @@ async def _enforce_portal_limits(spawner):
 
 c.Spawner.pre_spawn_hook = _enforce_portal_limits
 
+
+async def _dynamic_profile_list(spawner):
+    # 動態生成基於用戶配額的 profile list
+    username_raw = getattr(spawner.user, "name", None)
+    canonical = _canonical_username(username_raw)
+
+    # 獲取用戶配額
+    record = None
+    if _PORTAL_BASE and canonical:
+        record = await _fetch_usage_limits(canonical)
+
+    # 預設值（若無法獲取配額）
+    max_cpu = 64
+    max_memory_gib = 256
+    max_gpu = 8
+
+    if record:
+        max_cpu = int(record.get("cpu_limit_cores", 64))
+        max_memory_gib = int(record.get("memory_limit_gib", 256))
+        max_gpu = int(record.get("gpu_limit", 8))
+
+    profiles = []
+
+    # CPU-only profile
+    cpu_profile_cpu = min(max_cpu, 8)
+    cpu_profile_mem = min(max_memory_gib, 32)
+    profiles.append({
+        "display_name": "cpu-node",
+        "slug": "cpu-node",
+        "description": f"0 GPU / {cpu_profile_cpu} cores / {cpu_profile_mem}Gi",
+        "kubespawner_override": {
+            "cpu_guarantee": cpu_profile_cpu,
+            "cpu_limit": cpu_profile_cpu,
+            "mem_guarantee": f"{cpu_profile_mem}G",
+            "mem_limit": f"{cpu_profile_mem}G",
+            "environment": {
+                "CUDA_VISIBLE_DEVICES": "",
+                "NVIDIA_VISIBLE_DEVICES": "void",
+                "PYTORCH_ENABLE_MPS_FALLBACK": "1"
+            }
+        }
+    })
+
+    # GPU profiles
+    for gpu_count in [1, 2, 4, 8]:
+        if gpu_count > max_gpu:
+            continue
+
+        # 計算對應的 CPU 和 Memory
+        profile_cpu = min(max_cpu, gpu_count * 8)
+        profile_mem = min(max_memory_gib, gpu_count * 192)
+
+        profiles.append({
+            "display_name": f"h100-{gpu_count}v",
+            "description": f"{gpu_count}×GPU / {profile_cpu} cores / {profile_mem}Gi",
+            "kubespawner_override": {
+                "extra_pod_config": {"runtimeClassName": "nvidia"},
+                "extra_resource_limits": {"nvidia.com/gpu": gpu_count},
+                "extra_resource_guarantees": {"nvidia.com/gpu": gpu_count},
+                "environment": {"PYTORCH_CUDA_ALLOC_CONF": "expandable_segments:True"},
+                "cpu_guarantee": profile_cpu,
+                "cpu_limit": profile_cpu,
+                "mem_guarantee": f"{profile_mem}G",
+                "mem_limit": f"{profile_mem}G"
+            }
+        })
+
+    return profiles
+
+
+c.KubeSpawner.profile_list = _dynamic_profile_list
+
 PY
 )"
   if [[ -n "${hub_extra_config}" ]]; then
@@ -525,7 +611,7 @@ ${usage_limit_snippet}"
     hub_extra_config="${usage_limit_snippet}"
   fi
   fi
-  if [[ "${ENABLE_MPI_OPERATOR}" == "true" ]]; then
+  if [[ "${ENABLE_MPI_OPERATOR}" == "true" && "${ENABLE_MPI_USER_NS}" == "true" ]]; then
     local mpi_ns_prefix sa_prefix mpi_hook
     mpi_ns_prefix="${MPI_USER_NAMESPACE_PREFIX:-mpi}"
     sa_prefix="${MPI_USER_SERVICE_ACCOUNT_PREFIX:-jhub-mpi-sa}"
@@ -720,6 +806,7 @@ ${mpi_hook}"
     --argjson azuread_allowed_users ${azure_allowed_users_json} \
     --argjson port ${NODEPORT_FALLBACK_PORT} \
     --argjson profiles "${profiles_json}" \
+    --argjson use_dynamic_profiles $(if [[ "${ENABLE_USAGE_LIMIT_ENFORCER}" == "true" && -n "${USAGE_PORTAL_URL}" ]]; then echo "true"; else echo "false"; fi) \
     --argjson http_to ${SPAWNER_HTTP_TIMEOUT} \
     --argjson start_to ${KUBESPAWNER_START_TIMEOUT} \
     --argjson singleuser_node_selector ${singleuser_node_selector_json} \
@@ -895,7 +982,7 @@ ${mpi_hook}"
     ),
     "nodeSelector": $singleuser_node_selector,
     "extraTolerations": $singleuser_tolerations,
-    "profileList": $profiles,
+    "profileList": (if $use_dynamic_profiles then null else $profiles end),
     "extraEnv": (
       {
         "GRANT_SUDO": "yes"
