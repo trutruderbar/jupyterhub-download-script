@@ -583,10 +583,6 @@ A:
 4. Push 到 Branch (`git push origin feature/AmazingFeature`)
 5. 開啟 Pull Request
 
-## 📄 授權
-
-本專案採用 MIT 授權條款 - 詳見 [LICENSE](LICENSE) 檔案。
-
 ## 📚 相關資源
 
 - [JupyterHub 官方文件](https://jupyterhub.readthedocs.io/)
