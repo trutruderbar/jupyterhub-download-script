@@ -12,6 +12,7 @@ from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+import httpx
 
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
@@ -122,6 +123,8 @@ else:
 
 KUBECTL_BIN = shlex.split(os.environ.get("KUBECTL_BIN", "microk8s kubectl"))
 JHUB_NAMESPACE = os.environ.get("JHUB_NAMESPACE", "jhub")
+USAGE_PORTAL_URL = os.environ.get("USAGE_PORTAL_URL", "")
+USAGE_PORTAL_TIMEOUT = float(os.environ.get("USAGE_PORTAL_TIMEOUT", "5.0"))
 
 USERNAME_SANITIZE_RE = re.compile(r"[^a-z0-9]+")
 USERNAME_LABEL_KEYS = (
@@ -224,6 +227,40 @@ def _collect_cluster_capacity() -> Dict[str, float]:
         except Exception:
             continue
     return {"cpuMillicores": total_cpu, "memoryMiB": total_mem, "gpu": total_gpu}
+
+
+async def _fetch_user_quota(username: str) -> Optional[Dict[str, float]]:
+    """Fetch user quota limits from Usage Portal.
+
+    Returns dict with cpuMillicores, memoryMiB, gpu keys, or None if unavailable.
+    """
+    if not USAGE_PORTAL_URL:
+        return None
+
+    canonical = normalize_username(username)
+    if not canonical:
+        return None
+
+    url = f"{USAGE_PORTAL_URL.rstrip('/')}/users/{canonical}/limits"
+
+    try:
+        async with httpx.AsyncClient(timeout=USAGE_PORTAL_TIMEOUT) as client:
+            response = await client.get(url)
+            if response.status_code != 200:
+                return None
+
+            data = response.json()
+            cpu_limit = data.get("cpu_limit_cores", 0)
+            mem_limit = data.get("memory_limit_gib", 0)
+            gpu_limit = data.get("gpu_limit", 0)
+
+            return {
+                "cpuMillicores": float(cpu_limit) * 1000.0,  # cores to millicores
+                "memoryMiB": float(mem_limit) * 1024.0,       # GiB to MiB
+                "gpu": float(gpu_limit),
+            }
+    except Exception:
+        return None
 
 
 def _run_kubectl(args: List[str]) -> dict:
@@ -479,7 +516,9 @@ async def resources(user: str = Depends(require_user)):
     total_req_gpu = sum((p["requests"]["gpuCount"] or 0) for p in pods)
     total_lim_gpu = sum((p["limits"]["gpuCount"] or p["requests"]["gpuCount"] or 0) for p in pods)
 
-    cluster_capacity = _collect_cluster_capacity()
+    # Try to get user quota from Usage Portal first, fallback to cluster capacity
+    user_quota = await _fetch_user_quota(user)
+    cluster_capacity = user_quota if user_quota else _collect_cluster_capacity()
 
     formats_summary: Dict[str, dict] = {}
     for pod in pods:
