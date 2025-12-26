@@ -3,7 +3,6 @@ import os
 import re
 import shlex
 import subprocess
-from urllib.parse import unquote
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
@@ -125,6 +124,7 @@ KUBECTL_BIN = shlex.split(os.environ.get("KUBECTL_BIN", "microk8s kubectl"))
 JHUB_NAMESPACE = os.environ.get("JHUB_NAMESPACE", "jhub")
 USAGE_PORTAL_URL = os.environ.get("USAGE_PORTAL_URL", "")
 USAGE_PORTAL_TIMEOUT = float(os.environ.get("USAGE_PORTAL_TIMEOUT", "5.0"))
+HUB_API_URL = os.environ.get("USER_RESOURCE_MONITOR_HUB_API_URL") or os.environ.get("JUPYTERHUB_API_URL")
 
 USERNAME_SANITIZE_RE = re.compile(r"[^a-z0-9]+")
 USERNAME_LABEL_KEYS = (
@@ -442,33 +442,39 @@ def _user_from_jupyterhub_headers(request: Request) -> Optional[str]:
         value = request.headers.get(header)
         if value:
             return value.strip()
-    q_user = (
-        request.query_params.get("user")
-        or request.query_params.get("username")
-        or request.query_params.get("amp;user")
-        or request.query_params.get("amp;username")
-    )
-    if q_user:
-        return q_user.strip()
     return None
 
 
-def _user_from_cookie(request: Request) -> Optional[str]:
-    cookie_header = request.headers.get("cookie") or ""
-    if not cookie_header:
+async def _user_from_jupyterhub_token(request: Request) -> Optional[str]:
+    if not HUB_API_URL:
         return None
-    match = re.search(r"(?:^|;\s*)username=([^;]+)", cookie_header)
-    if not match:
+    authz = request.headers.get("authorization") or ""
+    if not authz.lower().startswith("bearer ") and not authz.lower().startswith("token "):
         return None
-    raw = match.group(1)
+    token = authz.split(None, 1)[1].strip()
+    if not token:
+        return None
+    base_api = HUB_API_URL.rstrip("/")
+    if not base_api:
+        base_api = f"{request.url.scheme}://{request.url.netloc}/hub/api"
+    url = f"{base_api}/user"
     try:
-        return unquote(raw)
+        async with httpx.AsyncClient(timeout=5.0, verify=False) as client:
+            resp = await client.get(url, headers={"Authorization": f"Bearer {token}"})
     except Exception:
-        return raw
+        return None
+    if resp.status_code != 200:
+        return None
+    try:
+        data = resp.json()
+    except Exception:
+        return None
+    username = data.get("name") or data.get("username")
+    return username or None
 
 
 async def require_user(request: Request) -> str:
-    user = _user_from_jupyterhub_headers(request) or _user_from_cookie(request)
+    user = _user_from_jupyterhub_headers(request) or await _user_from_jupyterhub_token(request)
     if not user:
         # Even when auth is disabled, we still need to know which user to filter pods for.
         raise HTTPException(status_code=401, detail="Missing user")
