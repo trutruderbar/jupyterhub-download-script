@@ -1,0 +1,232 @@
+{% extends "page.html" %}
+{% if announcement_home %}
+  {% set announcement = announcement_home %}
+{% endif %}
+
+{% block main %}
+
+<div class="container" id="home">
+  {% block message %}
+    {% if message %}
+      <div class="row">
+        <div class="col-md-10 col-md-offset-1 col-lg-8 col-lg-offset-2">
+          <div class="alert alert-{{message['level']}} ">
+            {{ message['message'] }}
+          </div>
+        </div>
+      </div>
+    {% endif %}
+  {% endblock message %}
+
+  {% if allow_named_servers %}
+  <div class="row home-row">
+    <div class="col-lg-10 col-md-12 mx-auto">
+      <div class="panel panel-default">
+        <div class="panel-heading">
+          <h2>Named Servers</h2>
+        </div>
+        <div class="panel-body">
+          <p class="named-server-limit-message">
+            {% if named_server_limit_per_user > 0 %}
+              You may create up to {{ named_server_limit_per_user }} named servers.
+            {% endif %}
+          </p>
+          <form id="named-server-form" class="form-inline">
+            <div class="form-group">
+              <input type="text"
+                     class="form-control new-server-name"
+                     placeholder="Name your server"
+                     id="server-name"
+                     required
+                     pattern="[a-zA-Z0-9][-a-zA-Z0-9]*[a-zA-Z0-9]"
+                     title="Server name must contain only alphanumeric characters and hyphens, and cannot start or end with a hyphen"
+                     maxlength="63">
+            </div>
+            <button type="submit"
+                    class="btn btn-primary new-server-btn"
+                    id="new-server-btn">
+              <i aria-hidden="true" class="fa fa-plus"></i> Add New Server
+            </button>
+          </form>
+
+          {% set named_spawners = user.all_spawners(include_default=False)|list %}
+          {% if not named_spawners %}
+            <p class="text-muted">No named servers created yet.</p>
+          {% else %}
+            <table class="server-table table table-striped table-hover" id="named-servers">
+              <thead>
+                <tr>
+                  <th>Server Name</th>
+                  <th>URL</th>
+                  <th>Last Activity</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for spawner in named_spawners %}
+                  <tr class="home-server-row" data-server-name="{{ spawner.name }}">
+                    <td class="server-name">{{ spawner.name }}</td>
+                    <td class="server-url">
+                      {% if spawner.ready %}
+                        <a class="server-link btn btn-sm btn-primary" href="{{ user.server_url(spawner.name) }}">
+                          <i aria-hidden="true" class="fa fa-external-link"></i> Access Server
+                        </a>
+                      {% else %}
+                        <span class="text-muted">Not running</span>
+                      {% endif %}
+                    </td>
+                    <td class="time-col">
+                      {% if spawner.last_activity %}
+                        {{ spawner.last_activity.isoformat() + 'Z' }}
+                      {% else %}
+                        Never
+                      {% endif %}
+                    </td>
+                    <td class="server-status">
+                      {% if spawner.pending %}
+                        <span class="badge bg-warning">{{ spawner.pending }}</span>
+                      {% elif spawner.active %}
+                        <span class="badge bg-success">Running</span>
+                      {% else %}
+                        <span class="badge bg-secondary">Stopped</span>
+                      {% endif %}
+                    </td>
+                    <td class="server-actions">
+                      {% if spawner.active %}
+                        <button class="btn btn-sm btn-danger stop-server" data-server-name="{{ spawner.name }}">
+                          <i aria-hidden="true" class="fa fa-stop"></i> Stop
+                        </button>
+                      {% else %}
+                        <a role="button" class="btn btn-sm btn-success start-server" href="{{ base_url }}spawn/{{ user.name }}/{{ spawner.name }}">
+                          <i aria-hidden="true" class="fa fa-play"></i> Start
+                        </a>
+                      {% endif %}
+                      {% if not spawner.active %}
+                        <button class="btn btn-sm btn-danger delete-server" data-server-name="{{ spawner.name }}">
+                          <i aria-hidden="true" class="fa fa-trash"></i> Delete
+                        </button>
+                      {% endif %}
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+{% endblock main %}
+
+{% block script %}
+{{ super() }}
+<script type="text/javascript">
+require(["jquery", "moment"], function ($, moment) {
+  "use strict";
+
+  // Format all timestamps
+  $("time").map(function (i, el) {
+    var m = moment(new Date(el.getAttribute("datetime")));
+    el.textContent = m.isValid() ? m.fromNow() : "Never";
+  });
+
+  $(".time-col").map(function (i, el) {
+    var text = el.textContent.trim();
+    if (text && text !== "Never") {
+      var m = moment(new Date(text));
+      el.textContent = m.isValid() ? m.fromNow() : "Never";
+    }
+  });
+
+  // Create new named server
+  $("#named-server-form").submit(function (e) {
+    e.preventDefault();
+    var serverName = $("#server-name").val().trim();
+    if (!serverName) {
+      alert("Please enter a server name");
+      return;
+    }
+
+    // Redirect to spawn page with server name
+    window.location.href = "{{ base_url }}spawn/{{ user.name }}/" + encodeURIComponent(serverName);
+  });
+
+  // Stop server
+  $(".stop-server").click(function () {
+    var serverName = $(this).data("server-name");
+    var row = $(this).closest("tr");
+
+    if (!confirm("Stop server " + serverName + "?")) {
+      return;
+    }
+
+    var stopUrl = "{{ base_url }}api/users/{{ user.name }}/servers/" + encodeURIComponent(serverName);
+
+    $.ajax({
+      url: stopUrl,
+      type: "DELETE",
+      headers: {
+        "X-XSRFToken": window.jhdata.xsrf_token
+      },
+      success: function () {
+        // Update UI
+        row.find(".server-status").html('<span class="badge bg-secondary">Stopped</span>');
+        row.find(".server-url").html('<span class="text-muted">Not running</span>');
+        row.find(".server-actions").html(
+          '<a role="button" class="btn btn-sm btn-success start-server" href="{{ base_url }}spawn/{{ user.name }}/' + serverName + '">' +
+          '<i aria-hidden="true" class="fa fa-play"></i> Start</a> ' +
+          '<button class="btn btn-sm btn-danger delete-server" data-server-name="' + serverName + '">' +
+          '<i aria-hidden="true" class="fa fa-trash"></i> Delete</button>'
+        );
+
+        // Re-bind delete button
+        row.find(".delete-server").click(deleteServerHandler);
+      },
+      error: function (xhr) {
+        alert("Failed to stop server: " + (xhr.responseJSON?.message || xhr.statusText));
+      }
+    });
+  });
+
+  // Delete server
+  function deleteServerHandler() {
+    var serverName = $(this).data("server-name");
+    var row = $(this).closest("tr");
+
+    if (!confirm("Delete server " + serverName + "? This will permanently delete the server configuration.")) {
+      return;
+    }
+
+    var deleteUrl = "{{ base_url }}api/users/{{ user.name }}/servers/" + encodeURIComponent(serverName);
+
+    $.ajax({
+      url: deleteUrl,
+      type: "DELETE",
+      data: JSON.stringify({ remove: true }),
+      contentType: "application/json",
+      headers: {
+        "X-XSRFToken": window.jhdata.xsrf_token
+      },
+      success: function () {
+        row.fadeOut(300, function() {
+          $(this).remove();
+          // Show message if no servers left
+          if ($("#named-servers tbody tr").length === 0) {
+            $("#named-servers").replaceWith('<p class="text-muted">No named servers created yet.</p>');
+          }
+        });
+      },
+      error: function (xhr) {
+        alert("Failed to delete server: " + (xhr.responseJSON?.message || xhr.statusText));
+      }
+    });
+  }
+
+  $(".delete-server").click(deleteServerHandler);
+});
+</script>
+{% endblock script %}

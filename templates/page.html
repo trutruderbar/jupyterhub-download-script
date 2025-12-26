@@ -96,6 +96,17 @@
         xsrf_token: "{{ xsrf_token }}",
       };
 
+      // Auto-redirect from /hub/spawn to /hub/home
+      (function() {
+        var baseUrl = "{{base_url}}";
+        var currentPath = window.location.pathname;
+
+        // If we're at /hub/spawn (default spawn page), redirect to /hub/home
+        if (currentPath === baseUrl + 'spawn' || currentPath === baseUrl + 'spawn/') {
+          window.location.href = baseUrl + 'home';
+        }
+      })();
+
 </script>
     {# djlint: on #}
     {% block meta %}
