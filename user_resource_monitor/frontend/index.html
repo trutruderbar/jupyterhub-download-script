@@ -137,11 +137,6 @@
         const parentData = window.parent && window.parent.jhdata;
         if (parentData && parentData.user) return parentData.user;
       } catch(_) {}
-      const qs = new URLSearchParams(window.location.search);
-      const qUser = qs.get("user") || qs.get("username") || qs.get("amp;user") || qs.get("amp;username");
-      if (qUser) return qUser;
-      const m = document.cookie.match(/(?:^|;\\s*)username=([^;]+)/);
-      if (m) { try { return decodeURIComponent(m[1]); } catch(_) { return m[1]; } }
       return null;
     })();
 
@@ -167,6 +162,7 @@
 
     async function api(path){
       const headers = {};
+      // When running inside JupyterHub, parent exposes current user via jhdata.
       if (HUB_USER) headers["x-jupyterhub-user"] = HUB_USER;
       const url = path.startsWith("http") ? path : joinPath(API_BASE, path.replace(/^\/api/,""));
       const res = await fetch(url, {cache:"no-store", credentials:"include", headers});
