@@ -24,6 +24,7 @@
 ### 作業系統
 - Ubuntu 22.04 LTS / 24.04 LTS
 - Debian 11+ 或其他 Debian 系發行版
+- RHEL/Rocky Linux 8+ (實驗性支援)
 
 ### 硬體需求
 - **CPU**: 4 核心以上（建議 8 核心）
@@ -83,6 +84,10 @@ export ENABLE_IB=true
 # 資源配額限制
 export ENABLE_USAGE_LIMIT_ENFORCER=true
 export USAGE_PORTAL_URL="http://your-portal-ip:29781"
+
+# 共享儲存路徑
+export SHARED_STORAGE_ENABLED=true
+export SHARED_STORAGE_PATH="/path/to/shared/storage"
 ```
 
 ### 3. 執行部署
@@ -132,7 +137,10 @@ sudo ./install_jhub.sh
 ./start_user_monitor.sh
 ```
 
-提供使用者查看自己的配額與當前使用量 (CPU/Memory/GPU)。
+提供以下三個使用者服務：
+- **Port Mapper** (32001): 管理 Pod 內部服務的外部端口映射
+- **User Resource Monitor** (32002): 查看個人配額與當前使用量
+- **User Logs Monitor** (32003): 查看個人 Pod 日誌
 
 ## 🏗️ 專案架構
 
@@ -179,7 +187,6 @@ sudo ./install_jhub.sh
 │
 ├── usage_monitoring/            # 使用情況監控服務
 │   ├── backend/                # FastAPI 後端
-│   ├── frontend/               # 前端 (舊版)
 │   ├── docker-compose.yml      # PostgreSQL
 │   └── .env.example            # 配置範例
 │
@@ -187,7 +194,13 @@ sudo ./install_jhub.sh
 │   ├── backend/                # FastAPI 後端
 │   └── frontend/               # React 前端
 │
+├── user_logs_monitor/           # 使用者日誌查看器
+│   ├── backend/                # FastAPI 後端
+│   └── frontend/               # React 前端
+│
 └── port_mapper/                 # Port 映射工具
+    ├── backend/                # FastAPI 後端
+    └── frontend/               # React 前端
 ```
 
 ## 🔐 認證模式
@@ -382,6 +395,18 @@ microk8s kubectl -n jhub get pods -l component=singleuser-server
 microk8s kubectl -n gpu-operator get pods
 ```
 
+### 健康檢查與自我修復
+
+```bash
+./healthcheck_selfheal.sh
+```
+
+此腳本會定期檢查：
+- JupyterHub Hub/Proxy Pod 狀態
+- GPU Operator 健康狀態
+- 節點資源使用情況
+- 自動重啟失敗的 Pods
+
 ### 卸載 JupyterHub
 
 ```bash
@@ -406,6 +431,9 @@ sudo ./uninstall_jhub.sh
 firewall-cmd --add-port=30080/tcp --permanent  # JupyterHub NodePort
 firewall-cmd --add-port=443/tcp --permanent    # HTTPS (若啟用)
 firewall-cmd --add-port=29781/tcp --permanent  # Usage Portal
+firewall-cmd --add-port=32001/tcp --permanent  # Port Mapper
+firewall-cmd --add-port=32002/tcp --permanent  # User Resource Monitor
+firewall-cmd --add-port=32003/tcp --permanent  # User Logs Monitor
 firewall-cmd --reload
 ```
 
@@ -415,6 +443,9 @@ firewall-cmd --reload
 ufw allow 30080/tcp
 ufw allow 443/tcp
 ufw allow 29781/tcp
+ufw allow 32001/tcp
+ufw allow 32002/tcp
+ufw allow 32003/tcp
 ```
 
 ## ⚙️ 進階配置
@@ -451,16 +482,19 @@ export ENABLE_IDLE_CULLER=true
 export IDLE_TIMEOUT=3600  # 秒
 ```
 
+### 啟用 MPI Operator
+
+```bash
+export ENABLE_MPI_OPERATOR=true
+export ENABLE_MPI_USER_NS=true
+export MPI_USERS_CSV="user1,user2"
+```
+
 ## 📈 使用情況監控
 
 ### 啟動 Usage Portal
 
 ```bash
-cd usage_monitoring
-cp .env.example .env
-# 編輯 .env 配置資料庫連線等
-
-cd ..
 ./start_usage_portal.sh
 ```
 
@@ -482,6 +516,8 @@ GET  /sessions/{id}         # 查詢特定 Session
 POST /sessions              # 創建 Session
 PUT  /sessions/{id}/end     # 結束 Session
 GET  /users/{username}/limits  # 查詢使用者配額
+GET  /api/usage             # 即時 pod/使用者彙整
+POST /api/pods/{pod}/action # 刪除 Pod
 ```
 
 ## 🐛 常見問題
@@ -543,13 +579,19 @@ A:
    - OAuth Client Secret
    - 內部 IP 位址、網域名稱
    - 資料庫密碼
+   - 實際的 `jhub.env` 檔案（僅保留 `jhub.env.example`）
 3. 建議使用 `.gitignore` 排除：
    - `offline-images/*.tar`
    - `usage_monitoring/.venv/`
+   - `port_mapper/.venv/`
+   - `user_resource_monitor/.venv/`
+   - `user_logs_monitor/.venv/`
    - `*.log`
    - `.env`
+   - `jhub.env`
    - `id_rsa*`
    - `certs/`
+   - `port_mapper_backup_*/`
 4. 生產環境建議啟用：
    - HTTPS (Nginx 反向代理)
    - 強密碼策略
@@ -583,6 +625,10 @@ A:
 4. Push 到 Branch (`git push origin feature/AmazingFeature`)
 5. 開啟 Pull Request
 
+## 📄 授權
+
+本專案採用 MIT 授權條款 - 詳見 [LICENSE](LICENSE) 檔案。
+
 ## 📚 相關資源
 
 - [JupyterHub 官方文件](https://jupyterhub.readthedocs.io/)
@@ -590,10 +636,6 @@ A:
 - [Kubernetes 文件](https://kubernetes.io/docs/)
 - [NVIDIA GPU Operator](https://docs.nvidia.com/datacenter/cloud-native/gpu-operator/)
 - [Calico 網路](https://docs.tigera.io/calico/latest/)
-
-## 👥 維護者
-
-請參考貴組織的維護者清單。
 
 ## 🙏 致謝
 

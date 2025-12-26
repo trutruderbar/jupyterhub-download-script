@@ -42,6 +42,10 @@ RUN ln -fs /usr/share/zoneinfo/Etc/UTC /etc/localtime \
       xfce4 xfce4-terminal tigervnc-standalone-server novnc websockify \
       falkon xdg-utils \
       dbus-x11 xauth x11-xserver-utils xfonts-base procps net-tools \
+      # 字型與 icon theme，避免桌面亂碼與缺圖示
+      fonts-noto-cjk fonts-noto-color-emoji fonts-dejavu-core fonts-dejavu-extra \
+      fonts-wqy-zenhei fonts-wqy-microhei \
+      adwaita-icon-theme-full hicolor-icon-theme tango-icon-theme \
       nfs-common dnsutils \
       # 語言/Kernel 依賴
       r-base r-base-dev \
@@ -58,6 +62,8 @@ RUN ln -fs /usr/share/zoneinfo/Etc/UTC /etc/localtime \
   && update-alternatives --set gnome-www-browser /usr/bin/falkon \
   && locale-gen en_US.UTF-8 zh_TW.UTF-8 \
   && update-locale LANG=en_US.UTF-8 LC_CTYPE=en_US.UTF-8 \
+  && fc-cache -f \
+  && gtk-update-icon-cache -f /usr/share/icons/Adwaita \
   && dpkg-reconfigure -f noninteractive tzdata \
   && rm -rf /var/lib/apt/lists/*
 

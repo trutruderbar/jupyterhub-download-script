@@ -880,6 +880,43 @@ ${mpi_hook}"
       } 
     end
   ),
+  "scheduling": {
+    "userScheduler": {
+      "enabled": true,
+      "plugins": {
+        "score": {
+          "disabled": [
+            { "name": "NodeResourcesBalancedAllocation" },
+            { "name": "NodeAffinity" },
+            { "name": "InterPodAffinity" },
+            { "name": "NodeResourcesFit" },
+            { "name": "ImageLocality" }
+          ],
+          "enabled": [
+            { "name": "NodeAffinity", "weight": 14631 },
+            { "name": "InterPodAffinity", "weight": 1331 },
+            { "name": "NodeResourcesFit", "weight": 121 },
+            { "name": "ImageLocality", "weight": 11 }
+          ]
+        }
+      },
+      "pluginConfig": [
+        {
+          "name": "NodeResourcesFit",
+          "args": {
+            "scoringStrategy": {
+              "type": "MostAllocated",
+              "resources": [
+                { "name": "cpu", "weight": 1 },
+                { "name": "memory", "weight": 1 },
+                { "name": "nvidia.com/gpu", "weight": 100 }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  },
   "singleuser": {
     "image": (
       {
@@ -1304,6 +1341,7 @@ _install_custom_templates(){
   local repo_template_dir="${SCRIPT_DIR:-$(pwd)}/templates"
   local repo_login_template="${repo_template_dir}/login.html"
   local repo_page_template="${repo_template_dir}/page.html"
+  local repo_home_template="${repo_template_dir}/home.html"
   local target_dir="${JHUB_HOME}/templates"
   local target_file="${target_dir}/login.html"
   local logo_static_path="images/jupyterhub-80.png"
@@ -1316,6 +1354,10 @@ _install_custom_templates(){
 
   if [[ -f "${repo_page_template}" ]]; then
     cp "${repo_page_template}" "${target_dir}/page.html"
+  fi
+
+  if [[ -f "${repo_home_template}" ]]; then
+    cp "${repo_home_template}" "${target_dir}/home.html"
   fi
 
   if [[ -f "$repo_login_template" ]]; then

@@ -6,5 +6,5 @@ window.JUPYTER_PORTAL = {
   portForwardActive: true,
   portForwardStatus: "已啟動",
   adminServiceUrl: "http://10.2.184.85:32081",
-  generatedAt: "2025-12-16T11:45:41Z"
+  generatedAt: "2025-12-23T01:47:31Z"
 };
